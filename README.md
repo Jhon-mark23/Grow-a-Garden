@@ -6,5 +6,10 @@ Designed for this game: https://www.roblox.com/games/126884695634066/Grow-a-Gard
 loadstring(game:HttpGet(('https://raw.githubusercontent.com/depthso/Grow-a-Garden/refs/heads/main/autofarm.lua')))()
 ```
 
+## Baboon
+```lua
+loadstring(game:HttpGet(('[https://raw.githubusercontent.com/depthso/Grow-a-Garden/refs/heads/main/autofarm.lua](https://raw.githubusercontent.com/Jhon-mark23/Grow-a-Garden/refs/heads/main/baboon)')))()
+```
+
 ---
 ![image](https://github.com/user-attachments/assets/1ea2aee2-3170-49d6-b0c5-3f83b159ebcf)
