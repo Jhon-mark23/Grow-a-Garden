@@ -4,7 +4,7 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name = "Marc Hub",
     LoadingTitle = "Marc Hub",
-    LoadingSubtitle = "ESP â€¢ Teleport â€¢ Jump â€¢ Auto AFK",
+    LoadingSubtitle = "ESP • Teleport • Jump • Auto AFK",
     ConfigurationSaving = { Enabled = false }
 })
 
@@ -24,6 +24,8 @@ local ESPTab = Window:CreateTab("ESP", 4483362458)
 local MovementTab = Window:CreateTab("MOVEMENT", 4483362458)
 local TeleportTab = Window:CreateTab("TELEPORT", 4483362458)
 local OthersTab = Window:CreateTab("OTHERS", 4483362458)
+
+
 
 ----------------------------------------------------------------
 -- ESP SYSTEM
@@ -88,45 +90,92 @@ Players.PlayerAdded:Connect(function(p)
 end)
 
 ----------------------------------------------------------------
--- AUTO AFK FLOAT / SKY
+-- AUTO AFK FLOAT / SKY + ANTI AFK
 ----------------------------------------------------------------
+
+local VirtualUser = game:GetService("VirtualUser")
+
 local afkFloating = false
-local skyHeight = 500
+local skyHeight = 400
 local floatVelocity
 
+------------------------------------------------------------------------
+-- UI TOGGLE
+------------------------------------------------------------------------
+
 OthersTab:CreateToggle({
-    Name = "Auto AFK Float / Sky",
+    Name = "AFK MODE (FLY IN SKY AFK)",
     CurrentValue = false,
     Callback = function(state)
         afkFloating = state
+
         local char = LocalPlayer.Character
         if not char then return end
+        
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
-        if afkFloating then
+        if state then
+            -- Create floating force
             floatVelocity = Instance.new("BodyVelocity")
             floatVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
             floatVelocity.Velocity = Vector3.new(0,0,0)
             floatVelocity.P = 1e4
             floatVelocity.Parent = hrp
 
-            hrp.CFrame = CFrame.new(hrp.Position.X, skyHeight, hrp.Position.Z)
+            -- Move player into the sky
+            hrp.CFrame = CFrame.new(
+                hrp.Position.X,
+                skyHeight,
+                hrp.Position.Z
+            )
+
+            -- Notify
+            Rayfield:Notify({
+                Title = "AFK MODE",
+                Content = "✅ Floating in sky + Anti AFK enabled",
+                Duration = 4
+            })
         else
             if floatVelocity then
                 floatVelocity:Destroy()
                 floatVelocity = nil
             end
+
+            Rayfield:Notify({
+                Title = "AFK MODE",
+                Content = "❌ AFK Float Disabled",
+                Duration = 4
+            })
         end
     end
 })
+
+------------------------------------------------------------------------
+-- KEEP PLAYER FLOATING
+------------------------------------------------------------------------
 
 RunService.RenderStepped:Connect(function()
     if afkFloating and LocalPlayer.Character then
         local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.CFrame = CFrame.new(hrp.Position.X, skyHeight, hrp.Position.Z)
+            hrp.CFrame = CFrame.new(
+                hrp.Position.X,
+                skyHeight,
+                hrp.Position.Z
+            )
         end
+    end
+end)
+
+------------------------------------------------------------------------
+-- ANTI AFK PROTECTION
+------------------------------------------------------------------------
+
+LocalPlayer.Idled:Connect(function()
+    if afkFloating then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
     end
 end)
 
@@ -160,7 +209,7 @@ Players.PlayerRemoving:Connect(function() dropdown:Refresh(getPlayerNames()) end
 
 -- Teleport selected player
 TeleportTab:CreateButton({
-    Name = "Teleport to Selected Player (TORSO)",
+    Name = "Teleport to Selected Player",
     Callback = function()
         if not selectedPlayer then
             Rayfield:Notify({Title="Teleport", Content="Select a player!", Duration=3})
@@ -295,6 +344,54 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+----------------------------------------------------------------
+-- ANTI AFK (AUTO-ON + TOGGLE)
+----------------------------------------------------------------
+
+local VirtualUser = game:GetService("VirtualUser")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Anti AFK STARTS ENABLED
+local antiAfkEnabled = true
+
+-- Show startup status
+Rayfield:Notify({
+    Title = "Anti AFK",
+    Content = "✅ Anti AFK",
+    Duration = 4
+})
+
+-- Toggle UI
+OthersTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = true,   -- Auto enabled on UI
+    Callback = function(state)
+        antiAfkEnabled = state
+
+        if state then
+            Rayfield:Notify({
+                Title = "Anti AFK",
+                Content = "✅ Anti AFK Enabled",
+                Duration = 3
+            })
+        else
+            Rayfield:Notify({
+                Title = "Anti AFK",
+                Content = "❌ Anti AFK Disabled",
+                Duration = 3
+            })
+        end
+    end
+})
+
+-- Roblox idle hook
+LocalPlayer.Idled:Connect(function()
+    if antiAfkEnabled then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
 ----------------------------------------------------------------
 -- DONE
 ----------------------------------------------------------------
