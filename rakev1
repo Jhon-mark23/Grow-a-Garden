@@ -29,8 +29,8 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v1.0.0"
-    local SCRIPT_NAME = "The Rake Enhanced"
+    local SCRIPT_VERSION = "v2.0.1"
+    local SCRIPT_NAME = "The Rake Resmatered"
 
     -- Load Rayfield Gen2
     local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
@@ -57,54 +57,39 @@ if game.GameId == 847722000 then
 
     -- ========== CUSTOM WELCOME NOTIFICATION ==========
     local function showWelcomeNotification()
-        -- Method 1: Simple direct notification
-        notify("🎮 WELCOME", "script version " .. SCRIPT_VERSION, 5)
-        
-        -- Method 2: More detailed with Rayfield (if you want more info)
-        -- Uncomment this to use the detailed version instead
-        --[[
-        if Rayfield and type(Rayfield.Notify) == "function" then
-            Rayfield:Notify({
-                Title = "🎮 WELCOME",
-                Content = string.format(
-                    "script version %s\n" ..
-                    "Type: Full Features\n" ..
-                    "Status: Loaded Successfully\n" ..
-                    "Developer: Sleepy",
-                    SCRIPT_VERSION
-                ),
-                Duration = 5,
-                Image = 4483362458,
-            })
-        end
-        ]]
+        notify("🎮 WELCOME", SCRIPT_NAME .. " " .. SCRIPT_VERSION, 5)
     end
 
     -- Create Window
     local window = Rayfield:CreateWindow({
-        name = "Project The Rake",
-        subtitle = "Fixed ESP + Power & Auto Heal",
+        name = "The Rake Resmatered BETA",
+        subtitle = "ESP + Exploits + Auto Heal",
     })
 
     -- Create Tabs
+    local espTab = window:CreateTab({
+        name = "ESP",
+        icon = "eye"
+    })
+
     local visualTab = window:CreateTab({
         name = "Visuals",
-        icon = 93364949241311
+        icon = "image"
     })
 
     local playerTab = window:CreateTab({
         name = "Player",
-        icon = 93364949241311
+        icon = "user"
     })
 
     local exploitTab = window:CreateTab({
         name = "Exploits",
-        icon = 93364949241311
+        icon = "shield"
     })
 
     local settingsTab = window:CreateTab({
         name = "Settings",
-        icon = 93364949241311
+        icon = "settings"
     })
 
     -- ========== CONFIG MANAGER ==========
@@ -188,159 +173,511 @@ if game.GameId == 847722000 then
         saveLater()
     end
 
+    -- ========== SERVICES ==========
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
+    local Lighting = game:GetService("Lighting")
+    local LocalPlayer = Players.LocalPlayer
+
     -- ========== STATE ==========
     local st = {
+        -- Visuals
         fullbright = cfgGet("fullbright", false),
-        infStamina = cfgGet("infStamina", false),
-        noFall = cfgGet("noFall", false),
-        playerEsp = cfgGet("playerEsp", false),
-        locEsp = cfgGet("locEsp", false),
-        flareEsp = cfgGet("flareEsp", false),
-        espSize = cfgGet("espSize", 12),
-        espScan = cfgGet("espScan", 2.0),
-        espDist = cfgGet("espDist", false),
-        espChams = cfgGet("espChams", true),
         fov = cfgGet("fov", 70),
         fovOn = cfgGet("fovOn", false),
-        rakeAura = cfgGet("rakeAura", false),
-        rakeAuraRange = cfgGet("rakeAuraRange", 12),
-        rakeAuraDelay = cfgGet("rakeAuraDelay", 0.12),
-        rakeAuraAutoEquip = cfgGet("rakeAuraAutoEquip", true),
         unlockThirdPerson = cfgGet("unlockThirdPerson", false),
+        infoBubble = cfgGet("infoBubble", false),
+        
+        -- Player
+        minZoom = cfgGet("minZoom", 0.5),
+        maxZoom = cfgGet("maxZoom", 1000),
         walkspeed = cfgGet("walkspeed", 16),
         walkspeedOn = cfgGet("walkspeedOn", false),
+        infStamina = cfgGet("infStamina", false),
+        noFall = cfgGet("noFall", false),
         autoHealSelf = cfgGet("autoHealSelf", false),
         autoHealPlayers = cfgGet("autoHealPlayers", false),
         healAutoEquip = cfgGet("healAutoEquip", true),
         healSelfAt = cfgGet("healSelfAt", 55),
         healPlayerAt = cfgGet("healPlayerAt", 60),
-        infoBubble = cfgGet("infoBubble", false),
-        minZoom = cfgGet("minZoom", 0.5),
-        maxZoom = cfgGet("maxZoom", 1000),
+        
+        -- Exploits
+        rakeAura = cfgGet("rakeAura", false),
+        rakeAuraRange = cfgGet("rakeAuraRange", 12),
+        rakeAuraDelay = cfgGet("rakeAuraDelay", 0.12),
+        rakeAuraAutoEquip = cfgGet("rakeAuraAutoEquip", true),
         autoPowerRestore = cfgGet("autoPowerRestore", false),
         powerRestoreUseToolbox = cfgGet("powerRestoreUseToolbox", true),
         spawnNotifications = cfgGet("spawnNotifications", true),
     }
 
-    -- ========== UTILITY FUNCTIONS ==========
-    local svc = {}
-    local ref = cloneref or function(v) return v end
-    local function ClonedService(name)
-        local c = svc[name]
-        if c then return c end
-        local ok, res = pcall(function() return __lt.cs(name, ref) end)
-        if ok and res then
-            svc[name] = res
-            return res
+    -- ========== ESP CONFIGURATION (FIXED COLORS) ==========
+    local ESPConfig = {
+        Players = {
+            Enabled = cfgGet("ESP_Players", false),
+            FillColor = Color3.fromRGB(255, 255, 255), -- WHITE
+            FillTransparency = 0.5,
+            OutlineColor = Color3.fromRGB(255, 255, 255),
+            OutlineTransparency = 0,
+            TextColor = Color3.fromRGB(255, 255, 255)
+        },
+        Rake = {
+            Enabled = cfgGet("ESP_Rake", false),
+            FillColor = Color3.fromRGB(255, 0, 0), -- RED
+            FillTransparency = 0.4,
+            OutlineColor = Color3.fromRGB(255, 0, 0),
+            OutlineTransparency = 0,
+            TextColor = Color3.fromRGB(255, 0, 0)
+        },
+        FlareGun = {
+            Enabled = cfgGet("ESP_FlareGun", false),
+            FillColor = Color3.fromRGB(255, 200, 0), -- YELLOW
+            FillTransparency = 0.3,
+            OutlineColor = Color3.fromRGB(255, 200, 0),
+            OutlineTransparency = 0,
+            TextColor = Color3.fromRGB(255, 255, 255)
+        },
+        Scrap = {
+            Enabled = cfgGet("ESP_Scrap", false),
+            FillColor = Color3.fromRGB(139, 69, 19), -- BROWN
+            FillTransparency = 0.5,
+            OutlineColor = Color3.fromRGB(101, 67, 33),
+            OutlineTransparency = 0,
+            TextColor = Color3.fromRGB(255, 255, 255)
+        },
+        Locations = {
+            Enabled = cfgGet("ESP_Locations", false)
+        }
+    }
+
+    -- ========== LOCATION DATA (FIXED COLORS) ==========
+    local LocationData = {
+        {Name = "Safe House", Position = Vector3.new(-370, 16, 75), Color = Color3.fromRGB(0, 255, 255)},      -- CYAN
+        {Name = "Observation Tower", Position = Vector3.new(69, 57, -69), Color = Color3.fromRGB(255, 150, 0)}, -- ORANGE
+        {Name = "Power Station", Position = Vector3.new(-285, 19, -210), Color = Color3.fromRGB(255, 255, 0)},  -- YELLOW
+        {Name = "Shop", Position = Vector3.new(-25, 16, -250), Color = Color3.fromRGB(255, 0, 255)},           -- MAGENTA
+        {Name = "Base Camp", Position = Vector3.new(-43, 17, 200), Color = Color3.fromRGB(0, 255, 0)},         -- GREEN
+        {Name = "Cave", Position = Vector3.new(-160, 20, 20), Color = Color3.fromRGB(255, 255, 255)}          -- WHITE
+    }
+
+    -- ========== ESP SYSTEM ==========
+    local ESP = {
+        Highlights = {},
+        TextEntries = {},
+        LocationMarkers = {},
+        Connections = {},
+        IsRunning = false
+    }
+
+    -- ========== DETECTION ==========
+    local function isScrap(obj)
+        if not obj then return false end
+        if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
+        return obj.Name:lower() == "scrap"
+    end
+
+    local function isFlareGun(obj)
+        if not obj then return false end
+        if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
+        local name = obj.Name
+        return (name == "FlareGunPickUp") or (name:lower():find("flaregun") ~= nil)
+    end
+
+    -- ========== ESP CORE ==========
+    function ESP:RemoveHighlight(object)
+        if self.Highlights[object] then
+            self.Highlights[object]:Destroy()
+            self.Highlights[object] = nil
         end
-        local raw = __lt.gs(name)
-        local out = raw and ref(raw) or raw
-        svc[name] = out
-        return out
     end
 
-    local Ws = ClonedService("Workspace")
-    local Plrs = ClonedService("Players")
-    local Rep = ClonedService("ReplicatedStorage")
-    local Lit = ClonedService("Lighting")
-    local Run = ClonedService("RunService")
-    local UserInputService = ClonedService("UserInputService")
-
-    local function ffc(v, name)
-        if not v then return nil end
-        local ok, res = pcall(function() return v:FindFirstChild(name) end)
-        return ok and res or nil
-    end
-
-    local function ffcr(v, name)
-        if not v then return nil end
-        local ok, res = pcall(function() return v:FindFirstChild(name, true) end)
-        return ok and res or nil
-    end
-
-    local function ffca(v, class)
-        if not v then return nil end
-        local ok, res = pcall(function() return v:FindFirstChildWhichIsA(class, true) end)
-        return ok and res or nil
-    end
-
-    local function kids(v)
-        if not v then return {} end
-        local ok, res = pcall(function() return v:GetChildren() end)
-        return ok and res or {}
-    end
-
-    local function desc(v)
-        if not v then return {} end
-        local ok, res = pcall(function() return v:GetDescendants() end)
-        return ok and res or {}
-    end
-
-    local function valOf(v, def)
-        if not v then return def end
-        local ok, res = pcall(function() return v.Value end)
-        if ok and res ~= nil then return res end
-        return def
-    end
-
-    local function safeDestroy(v)
-        if v then pcall(function() v:Destroy() end) end
-    end
-
-    local function safeDrawRemove(v)
-        if v then
-            pcall(function()
-                v.Visible = false
-                if type(v.Remove) == "function" then
-                    v:Remove()
-                elseif type(v.Destroy) == "function" then
-                    v:Destroy()
-                end
-            end)
+    function ESP:RemoveText(object)
+        if self.TextEntries[object] then
+            if self.TextEntries[object].Connection then
+                self.TextEntries[object].Connection:Disconnect()
+            end
+            if self.TextEntries[object].Gui then
+                self.TextEntries[object].Gui:Destroy()
+            end
+            self.TextEntries[object] = nil
         end
     end
 
-    local function GET_HRP()
-        local lp = Plrs.LocalPlayer
-        local ch = lp and lp.Character
-        if not ch then return nil end
-        return ffcr(ch, "HumanoidRootPart")
+    function ESP:RemoveESP(object)
+        self:RemoveHighlight(object)
+        self:RemoveText(object)
     end
 
-    local function getHum()
-        local lp = Plrs.LocalPlayer
-        local ch = lp and lp.Character
-        if not ch then return nil end
-        return ffca(ch, "Humanoid")
+    function ESP:CreateHighlight(object, configKey)
+        self:RemoveHighlight(object)
+        local settings = ESPConfig[configKey]
+        if not settings then return nil end
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.Adornee = object
+        highlight.FillColor = settings.FillColor
+        highlight.FillTransparency = settings.FillTransparency
+        highlight.OutlineColor = settings.OutlineColor
+        highlight.OutlineTransparency = settings.OutlineTransparency
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = object
+        self.Highlights[object] = highlight
+        return highlight
     end
 
-    local function getChar()
-        local lp = Plrs.LocalPlayer
-        if not lp then return nil end
-        return lp.Character
+    function ESP:CreateText(object, configKey, displayName)
+        self:RemoveText(object)
+        local part = self:getAttachPart(object)
+        if not part then return nil end
+        
+        local settings = ESPConfig[configKey]
+        if not settings then return nil end
+
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "ESPText"
+        gui.Adornee = part
+        gui.Parent = part
+        gui.Size = UDim2.new(0, 200, 0, 30)
+        gui.StudsOffset = Vector3.new(0, 3, 0)
+        gui.AlwaysOnTop = true
+        gui.MaxDistance = math.huge
+        gui.ResetOnSpawn = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+        local label = Instance.new("TextLabel")
+        label.Parent = gui
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = displayName
+        label.TextColor3 = settings.TextColor
+        label.TextStrokeTransparency = 0.3
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        label.Font = Enum.Font.SourceSansBold
+        label.TextSize = 14
+        label.TextWrapped = true
+
+        local entry = {
+            Object = object,
+            Part = part,
+            Gui = gui,
+            Label = label,
+            ConfigKey = configKey,
+            DisplayName = displayName
+        }
+
+        local connection
+        connection = object.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                self:RemoveESP(object)
+                if connection then connection:Disconnect() end
+            end
+        end)
+        entry.Connection = connection
+        self.TextEntries[object] = entry
+        return entry
     end
 
-    -- Connection management
-    local conns = {}
-    local function bind(sig, fn)
-        if not sig or type(fn) ~= "function" then return nil end
-        local ok, c = pcall(function() return sig:Connect(fn) end)
-        if ok and c then
-            conns[#conns + 1] = c
-            return c
+    function ESP:getAttachPart(object)
+        if object:IsA("BasePart") then return object end
+        if object:IsA("Model") then
+            local part = object:FindFirstChild("HumanoidRootPart")
+            if part then return part end
+            part = object:FindFirstChild("Head")
+            if part then return part end
+            part = object:FindFirstChild("Torso")
+            if part then return part end
+            part = object:FindFirstChildWhichIsA("BasePart")
+            if part then return part end
+            return object.PrimaryPart
         end
         return nil
     end
 
-    local function wipeConns()
-        for i = #conns, 1, -1 do
-            local c = conns[i]
-            if c then
-                pcall(function() c:Disconnect() end)
-            end
-            conns[i] = nil
+    function ESP:AddESP(object, configKey, displayName)
+        if not object then return end
+        self:CreateHighlight(object, configKey)
+        self:CreateText(object, configKey, displayName)
+    end
+
+    function ESP:UpdateTextEntry(entry)
+        if not entry or not entry.Object or not entry.Gui then return end
+        if not entry.Object:IsDescendantOf(Workspace) then
+            self:RemoveESP(entry.Object)
+            return
+        end
+        
+        local pos = self:getObjectPosition(entry.Object)
+        local dist = self:getDistanceFromPlayer(pos)
+        
+        -- Only show distance in km
+        local text = entry.DisplayName
+        if dist then
+            local km = dist / 1000
+            text = string.format("%s | %.2f km", entry.DisplayName, km)
+        end
+        
+        entry.Label.Text = text
+    end
+
+    function ESP:getObjectPosition(object)
+        if object:IsA("BasePart") then return object.Position end
+        if object:IsA("Model") then
+            local part = self:getAttachPart(object)
+            if part then return part.Position end
+            return object:GetPivot().Position
+        end
+        return Vector3.new(0, 0, 0)
+    end
+
+    function ESP:getDistanceFromPlayer(position)
+        if not LocalPlayer.Character then return nil end
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return nil end
+        return (root.Position - position).Magnitude
+    end
+
+    -- ========== LOCATION ESP ==========
+    function ESP:CreateLocationMarker(locationData)
+        local marker = Instance.new("Part")
+        marker.Name = "LocationMarker_" .. locationData.Name
+        marker.Size = Vector3.new(1, 1, 1)
+        marker.Position = locationData.Position
+        marker.Anchored = true
+        marker.CanCollide = false
+        marker.Transparency = 1
+        marker.Parent = Workspace
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "LocationHighlight"
+        highlight.Adornee = marker
+        highlight.FillColor = locationData.Color
+        highlight.FillTransparency = 0.3
+        highlight.OutlineColor = locationData.Color
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = marker
+        
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "LocationText"
+        gui.Adornee = marker
+        gui.Parent = marker
+        gui.Size = UDim2.new(0, 200, 0, 30)
+        gui.StudsOffset = Vector3.new(0, 2, 0)
+        gui.AlwaysOnTop = true
+        gui.MaxDistance = math.huge
+        
+        local label = Instance.new("TextLabel")
+        label.Parent = gui
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = locationData.Name
+        label.TextColor3 = locationData.Color
+        label.TextStrokeTransparency = 0.3
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        label.Font = Enum.Font.SourceSansBold
+        label.TextSize = 12
+        
+        return {Marker = marker, Highlight = highlight, Gui = gui, Label = label, LocationData = locationData}
+    end
+
+    function ESP:UpdateLocationMarkers()
+        for _, markerEntry in pairs(self.LocationMarkers) do
+            if markerEntry.Marker then markerEntry.Marker:Destroy() end
+        end
+        self.LocationMarkers = {}
+        
+        if not ESPConfig.Locations.Enabled then return end
+        
+        for _, locationData in ipairs(LocationData) do
+            local marker = self:CreateLocationMarker(locationData)
+            table.insert(self.LocationMarkers, marker)
         end
     end
+
+    function ESP:UpdateLocationText()
+        for _, markerEntry in ipairs(self.LocationMarkers) do
+            if markerEntry.Marker and markerEntry.Marker.Parent then
+                local pos = markerEntry.LocationData.Position
+                local dist = self:getDistanceFromPlayer(pos)
+                
+                local text = markerEntry.LocationData.Name
+                if dist then
+                    local km = dist / 1000
+                    text = string.format("%s | %.2f km", markerEntry.LocationData.Name, km)
+                end
+                
+                markerEntry.Label.Text = text
+            end
+        end
+    end
+
+    -- ========== UPDATE FUNCTIONS ==========
+    local UPDATE_INTERVAL = 0.5
+    local OBJECT_SCAN_INTERVAL = 1.0
+
+    local function updateObjectTargets()
+        if not ESPConfig.Players.Enabled and 
+           not ESPConfig.Rake.Enabled and 
+           not ESPConfig.FlareGun.Enabled and 
+           not ESPConfig.Scrap.Enabled then
+            return
+        end
+        
+        -- Rake
+        if ESPConfig.Rake.Enabled then
+            local rake = Workspace:FindFirstChild("Rake", true)
+            if rake and not ESP.Highlights[rake] then
+                ESP:AddESP(rake, "Rake", "RAKE")
+            end
+        end
+        
+        -- Flare Gun
+        if ESPConfig.FlareGun.Enabled then
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if isFlareGun(obj) and not ESP.Highlights[obj] then
+                    ESP:AddESP(obj, "FlareGun", "FLARE GUN")
+                end
+            end
+        end
+        
+        -- Scrap
+        if ESPConfig.Scrap.Enabled then
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if isScrap(obj) and obj:IsA("BasePart") then
+                    if not ESP.Highlights[obj] then
+                        ESP:AddESP(obj, "Scrap", "SCRAP")
+                    end
+                end
+            end
+        end
+        
+        -- Clean up
+        local toRemove = {}
+        for object, highlight in pairs(ESP.Highlights) do
+            if not object:IsDescendantOf(Workspace) then
+                table.insert(toRemove, object)
+            else
+                local isEnabled = false
+                
+                local player = Players:GetPlayerFromCharacter(object)
+                if player and ESPConfig.Players.Enabled then
+                    isEnabled = true
+                end
+                
+                if not isEnabled and ESPConfig.Rake.Enabled then
+                    local rake = Workspace:FindFirstChild("Rake", true)
+                    if rake == object then
+                        isEnabled = true
+                    end
+                end
+                
+                if not isEnabled and ESPConfig.FlareGun.Enabled and isFlareGun(object) then
+                    isEnabled = true
+                end
+                
+                if not isEnabled and ESPConfig.Scrap.Enabled and isScrap(object) then
+                    isEnabled = true
+                end
+                
+                if not isEnabled then
+                    table.insert(toRemove, object)
+                end
+            end
+        end
+        for _, object in ipairs(toRemove) do
+            ESP:RemoveESP(object)
+        end
+    end
+
+    local function updateAllText()
+        for object, entry in pairs(ESP.TextEntries) do
+            ESP:UpdateTextEntry(entry)
+        end
+        ESP:UpdateLocationText()
+    end
+
+    -- ========== MAIN LOOP ==========
+    local lastObjectScan = 0
+    local lastTextUpdate = 0
+    local heartbeatConnection
+
+    local function updateLoop()
+        local currentTime = tick()
+        
+        if currentTime - lastObjectScan >= OBJECT_SCAN_INTERVAL then
+            updateObjectTargets()
+            lastObjectScan = currentTime
+        end
+        
+        if currentTime - lastTextUpdate >= UPDATE_INTERVAL then
+            updateAllText()
+            lastTextUpdate = currentTime
+        end
+    end
+
+    function ESP:Start()
+        if self.IsRunning then return end
+        self.IsRunning = true
+        heartbeatConnection = RunService.Heartbeat:Connect(updateLoop)
+    end
+
+    function ESP:Stop()
+        if not self.IsRunning then return end
+        self.IsRunning = false
+        if heartbeatConnection then
+            heartbeatConnection:Disconnect()
+            heartbeatConnection = nil
+        end
+    end
+
+    -- ========== PLAYER HANDLING ==========
+    local function handlePlayerCharacter(player, character)
+        if player == LocalPlayer then return end
+        if character and ESPConfig.Players.Enabled then
+            if not ESP.Highlights[character] then
+                ESP:AddESP(character, "Players", player.Name)
+            end
+        end
+    end
+
+    local function onPlayerAdded(player)
+        if player == LocalPlayer then return end
+        if player.Character then
+            handlePlayerCharacter(player, player.Character)
+        end
+        
+        local characterConn = player.CharacterAdded:Connect(function(character)
+            handlePlayerCharacter(player, character)
+        end)
+        table.insert(ESP.Connections, characterConn)
+        
+        local removingConn = player.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                if player.Character then
+                    ESP:RemoveESP(player.Character)
+                end
+                if characterConn then characterConn:Disconnect() end
+                if removingConn then removingConn:Disconnect() end
+            end
+        end)
+        table.insert(ESP.Connections, removingConn)
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        onPlayerAdded(player)
+    end
+
+    local playerAddedConn = Players.PlayerAdded:Connect(onPlayerAdded)
+    table.insert(ESP.Connections, playerAddedConn)
+
+    local playerRemovingConn = Players.PlayerRemoving:Connect(function(player)
+        if player.Character then
+            ESP:RemoveESP(player.Character)
+        end
+    end)
+    table.insert(ESP.Connections, playerRemovingConn)
 
     -- ========== FULLBRIGHT ==========
     local fullbrightOn = false
@@ -366,9 +703,9 @@ if game.GameId == 847722000 then
     }
 
     function hasLiveCharacter()
-        local ch = getChar()
+        local ch = LocalPlayer.Character
         if not (ch and ch.Parent) then return false end
-        local hum = ffc(ch, "Humanoid")
+        local hum = ch:FindFirstChild("Humanoid")
         return hum ~= nil and hum.Parent ~= nil
     end
 
@@ -380,7 +717,7 @@ if game.GameId == 847722000 then
         end
         for _, prop in fullbrightProps do
             if store[prop] == nil then
-                pcall(function() store[prop] = Lit[prop] end)
+                pcall(function() store[prop] = Lighting[prop] end)
             end
         end
         return store
@@ -391,8 +728,8 @@ if game.GameId == 847722000 then
         fullbrightApply = true
         local ok = pcall(function()
             for prop, val in fullbrightVals do
-                if Lit[prop] ~= val then
-                    Lit[prop] = val
+                if Lighting[prop] ~= val then
+                    Lighting[prop] = val
                 end
             end
         end)
@@ -416,15 +753,15 @@ if game.GameId == 847722000 then
         for _, prop in fullbrightSignalProps do
             local val = fullbrightVals[prop]
             local ok, con = pcall(function()
-                return Lit:GetPropertyChangedSignal(prop):Connect(function()
+                return Lighting:GetPropertyChangedSignal(prop):Connect(function()
                     if st.fullbright ~= true or fullbrightApply == true or not hasLiveCharacter() then
                         return
                     end
-                    if Lit[prop] ~= val then
+                    if Lighting[prop] ~= val then
                         fullbrightApply = true
                         pcall(function()
-                            if Lit[prop] ~= val then
-                                Lit[prop] = val
+                            if Lighting[prop] ~= val then
+                                Lighting[prop] = val
                             end
                         end)
                         fullbrightApply = false
@@ -448,8 +785,8 @@ if game.GameId == 847722000 then
                 if type(store) == "table" then
                     pcall(function()
                         for _, prop in fullbrightProps do
-                            if store[prop] ~= nil and Lit[prop] ~= store[prop] then
-                                Lit[prop] = store[prop]
+                            if store[prop] ~= nil and Lighting[prop] ~= store[prop] then
+                                Lighting[prop] = store[prop]
                             end
                         end
                     end)
@@ -470,7 +807,7 @@ if game.GameId == 847722000 then
         return true
     end
 
-    -- ========== FOV & ZOOM ==========
+    -- ========== FOV ==========
     local fovApply = false
     local fovConns = {}
     function wipeFovConns()
@@ -483,15 +820,13 @@ if game.GameId == 847722000 then
         end
     end
     function applyFov()
-        if not Run or st.fovOn ~= true or fovApply == true then return end
-        local cam = Ws.CurrentCamera or workspace.CurrentCamera
+        if st.fovOn ~= true or fovApply == true then return end
+        local cam = workspace.CurrentCamera
         if not cam then return end
         local num = math.clamp(tonumber(st.fov) or 70, 1, 120)
         if cam.FieldOfView ~= num then
             fovApply = true
-            pcall(function()
-                cam.FieldOfView = num
-            end)
+            pcall(function() cam.FieldOfView = num end)
             fovApply = false
         end
     end
@@ -500,7 +835,7 @@ if game.GameId == 847722000 then
         if not cam then return end
         local ok, c = pcall(function()
             return cam:GetPropertyChangedSignal("FieldOfView"):Connect(function()
-                if Run and st.fovOn == true and fovApply ~= true then
+                if st.fovOn == true and fovApply ~= true then
                     applyFov()
                 end
             end)
@@ -511,6 +846,7 @@ if game.GameId == 847722000 then
         applyFov()
     end
 
+    -- ========== ZOOM ==========
     local zoomConns = {}
     local zoomApply = false
     function wipeZoomConns()
@@ -524,22 +860,18 @@ if game.GameId == 847722000 then
     end
     function applyZoom()
         if zoomApply == true then return end
-        local lp = Plrs.LocalPlayer
+        local lp = LocalPlayer
         if not lp then return end
         local mn = math.max(0.5, tonumber(st.minZoom) or 0.5)
         local mx = math.max(mn, tonumber(st.maxZoom) or 1000)
         if lp.CameraMinZoomDistance ~= mn then
             zoomApply = true
-            pcall(function()
-                lp.CameraMinZoomDistance = mn
-            end)
+            pcall(function() lp.CameraMinZoomDistance = mn end)
             zoomApply = false
         end
         if lp.CameraMaxZoomDistance ~= mx then
             zoomApply = true
-            pcall(function()
-                lp.CameraMaxZoomDistance = mx
-            end)
+            pcall(function() lp.CameraMaxZoomDistance = mx end)
             zoomApply = false
         end
     end
@@ -565,7 +897,6 @@ if game.GameId == 847722000 then
     -- ========== INFINITE STAMINA ==========
     local infSys = {
         tabs = setmetatable({}, { __mode = "k" }),
-        token = 0,
         fast = 1,
     }
     function patchInfTab(v)
@@ -603,8 +934,8 @@ if game.GameId == 847722000 then
     local noFallHaystackSize = Vector3.new(100000, 100000, 100000)
     local noFallToken = 0
     function getHaystack()
-        local filter = ffc(Ws, "Filter")
-        return filter and ffc(filter, "Haystack") or nil
+        local filter = Workspace:FindFirstChild("Filter")
+        return filter and filter:FindFirstChild("Haystack") or nil
     end
     function applyNoFall()
         noFallToken = noFallToken + 1
@@ -631,365 +962,87 @@ if game.GameId == 847722000 then
         end)
     end
 
-    -- ========== ESP SYSTEM (FIXED) ==========
-    local esp = {
-        players = {},
-        locs = {},
-        flare = nil,
-        scanT = 1,
-        updT = 0,
-    }
-
-    function espDrawTxt(txt, col)
-        if not Drawing or not Drawing.new then return nil end
-        local ok, d = pcall(function() return Drawing.new("Text") end)
-        if not ok or not d then return nil end
-        d.Text = txt or ""
-        d.Color = col or Color3.fromRGB(255,255,255)
-        d.Outline = false
-        d.Center = true
-        d.Font = 2
-        d.Size = st.espSize or 12
-        d.Visible = false
-        return d
-    end
-
-    function espCham(par, name, fill, out, trans)
-        if not par or st.espChams ~= true then return nil end
-        local h = ffc(par, name)
-        if h and h:IsA("Highlight") then
-            h.Enabled = true
-            return h
-        end
-        h = Instance.new("Highlight")
-        h.Name = name
-        h.Adornee = par
-        h.FillColor = fill or Color3.fromRGB(255,255,255)
-        h.OutlineColor = out or Color3.fromRGB(170,170,170)
-        h.FillTransparency = trans or 0.3
-        h.OutlineTransparency = 0.8
-        h.Parent = par
-        return h
-    end
-
-    function espPosOf(obj)
-        if not obj then return nil end
-        if obj:IsA("BasePart") then return obj.Position end
-        if obj:IsA("Model") then
-            local pp = obj.PrimaryPart or ffcr(obj, "HumanoidRootPart") or ffcr(obj, "Head") or ffcr(obj, "HitBox") or ffcr(obj, "Scrap")
-            if pp and pp:IsA("BasePart") then
-                return pp.Position
+    -- ========== WALKSPEED ==========
+    function applyWalkSpeed()
+        if st.walkspeedOn ~= true then return end
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+        if not hum or not hum.Parent then return end
+        local spd = math.clamp(tonumber(st.walkspeed) or 16, 0, 30.5)
+        pcall(function()
+            if hum.WalkSpeed ~= spd then
+                hum.WalkSpeed = spd
             end
-            local ok, cf = pcall(function() return obj:GetPivot() end)
-            if ok and cf then return cf.Position end
-        end
-        return nil
+            if hum.UseJumpPower ~= false then
+                hum.JumpPower = 50
+            end
+        end)
     end
 
-    function espShow(d, pos, txt)
-        if not d or not pos then
-            if d then d.Visible = false end
+    -- ========== THIRD PERSON ==========
+    local thirdPersonActive = false
+    local thirdPersonConns = {}
+    function applyThirdPerson(force)
+        if st.unlockThirdPerson ~= true and force ~= true then
+            if thirdPersonActive then
+                thirdPersonActive = false
+                for _, c in thirdPersonConns do
+                    pcall(function() c:Disconnect() end)
+                end
+                thirdPersonConns = {}
+            end
             return
         end
-        local cam = workspace.CurrentCamera
-        if not cam then
-            d.Visible = false
-            return
-        end
-        local me = GET_HRP()
-        local dist
-        if me then
-            dist = (pos - me.Position).Magnitude
-        end
-        local p, on = cam:WorldToViewportPoint(pos)
-        if on then
-            local text = txt or d.Text
-            if st.espDist == true and dist then
-                text = tostring(text) .. " [" .. tostring(math.floor(dist + 0.5)) .. "m]"
-            end
-            if d.Text ~= text then
-                d.Text = text
-            end
-            local size = st.espSize or d.Size
-            if d.Size ~= size then
-                d.Size = size
-            end
-            if d.Outline ~= false then
-                d.Outline = false
-            end
-            local pos2 = Vector2.new(p.X, p.Y)
-            if d.Position ~= pos2 then
-                d.Position = pos2
-            end
-            if d.Visible ~= true then
-                d.Visible = true
-            end
-        else
-            if d.Visible ~= false then
-                d.Visible = false
-            end
-        end
-    end
-
-    function espClearOne(tab, key)
-        local it = tab[key]
-        if not it then return end
-        safeDrawRemove(it.d)
-        safeDestroy(it.h)
-        tab[key] = nil
-    end
-
-    function cleanupEsp(kind)
-        if not kind or kind == "flare" then
-            if esp.flare then
-                safeDrawRemove(esp.flare.d)
-                safeDestroy(esp.flare.h)
-                esp.flare = nil
-            end
-        end
-        if not kind or kind == "players" then
-            for k in esp.players do
-                espClearOne(esp.players, k)
-            end
-        end
-        if not kind or kind == "locs" then
-            for k, d in esp.locs do
-                safeDrawRemove(d)
-                esp.locs[k] = nil
-            end
-        end
-    end
-
-    -- Location data
-    local LocationData = {
-        { Name = "Safe House", Position = Vector3.new(-370, 16, 75), Color = Color3.fromRGB(0,255,255) },
-        { Name = "Observation Tower", Position = Vector3.new(69, 57, -69), Color = Color3.fromRGB(255,150,0) },
-        { Name = "Power Station", Position = Vector3.new(-285, 19, -210), Color = Color3.fromRGB(255,255,0) },
-        { Name = "Shop", Position = Vector3.new(-25, 16, -250), Color = Color3.fromRGB(255,0,255) },
-        { Name = "Base Camp", Position = Vector3.new(-43, 17, 200), Color = Color3.fromRGB(0,255,0) },
-        { Name = "Cave", Position = Vector3.new(-160, 20, 20), Color = Color3.fromRGB(255,255,255) },
-    }
-
-    -- ========== FIXED: ESP SCAN ==========
-    function espScan()
-        -- Player ESP
-        if st.playerEsp == true then
-            for _, p in Plrs:GetPlayers() do
-                if p ~= Plrs.LocalPlayer and p.Character then
-                    local ch = p.Character
-                    if not esp.players[p] or esp.players[p].o ~= ch then
-                        espClearOne(esp.players, p)
-                        esp.players[p] = {
-                            o = ch,
-                            d = espDrawTxt(p.Name, Color3.fromRGB(0, 255, 34)),
-                            h = espCham(ch, "PlayerChams", Color3.fromRGB(0, 11, 170), Color3.fromRGB(170,170,170), 0.3),
-                        }
+        thirdPersonActive = true
+        pcall(function()
+            local cam = workspace.CurrentCamera
+            if cam then
+                cam.CameraType = Enum.CameraType.Custom
+                local char = LocalPlayer.Character
+                if char then
+                    local hum = char:FindFirstChild("Humanoid")
+                    if hum then
+                        cam.CameraSubject = hum
                     end
                 end
             end
-            for p, it in esp.players do
-                if not p.Parent or not p.Character or p.Character ~= it.o then
-                    espClearOne(esp.players, p)
-                end
-            end
-        else
-            cleanupEsp("players")
-        end
-
-        -- Flare Gun ESP
-        if st.flareEsp == true then
-            local fl = ffcr(Ws, "FlareGunPickUp")
-            if not fl then
-                for _, obj in desc(Ws) do
-                    if obj:IsA("BasePart") and obj.Name:lower():find("flaregun") then
-                        fl = obj
-                        break
-                    end
-                end
-            end
-            if fl then
-                if not esp.flare or esp.flare.o ~= fl then
-                    cleanupEsp("flare")
-                    esp.flare = {
-                        o = fl,
-                        d = espDrawTxt("Flare Gun", Color3.fromRGB(0, 225, 255)),
-                        h = espCham(fl, "FlareGunChams", Color3.fromRGB(255, 0, 0), Color3.fromRGB(170,170,170), 0.3),
-                    }
-                end
-            else
-                cleanupEsp("flare")
-            end
-        else
-            cleanupEsp("flare")
-        end
-
-        -- Location ESP
-        if st.locEsp == true then
-            for _, loc in ipairs(LocationData) do
-                if not esp.locs[loc.Name] then
-                    esp.locs[loc.Name] = espDrawTxt("[LOC] "..loc.Name, loc.Color)
-                end
-            end
-        else
-            cleanupEsp("locs")
-        end
-    end
-
-    function espAny()
-        return st.playerEsp == true or st.locEsp == true or st.flareEsp == true
-    end
-
-    -- ========== RAKE KILLAURA ==========
-    local auraT = 0
-    local aura = { rk = nil, rr = nil, rh = nil, stick = nil, ev = nil, hp = nil, bp = nil }
-    function auraClearRake() aura.rk = nil; aura.rr = nil; aura.rh = nil end
-    function auraClearStick() aura.stick = nil; aura.ev = nil; aura.hp = nil end
-    function auraIsStick(v)
-        if not (v and v:IsA("Tool")) then return false end
-        local n = string.lower(v.Name)
-        return n == "stunstick" or (string.find(n, "stun",1,true) and string.find(n, "stick",1,true)) ~= nil
-    end
-    function auraGetRake()
-        local rk = aura.rk
-        if not (rk and rk.Parent) then
-            rk = ffc(Ws, "Rake")
-            aura.rk = rk
-            aura.rr = nil
-            aura.rh = nil
-        end
-        if not rk then return nil end
-        local rh = aura.rh
-        if not (rh and rh.Parent) then
-            rh = ffc(rk, "Monster") or ffca(rk, "Humanoid")
-            aura.rh = rh
-        end
-        if rh and rh.Health and rh.Health <= 0 then return nil end
-        local rr = aura.rr
-        if not (rr and rr.Parent) then
-            rr = ffc(rk, "HumanoidRootPart") or ffcr(rk, "HumanoidRootPart")
-            aura.rr = rr
-        end
-        if not rr then return nil end
-        return rk, rr, rh
-    end
-    function auraGetPart(rk, rr, pos)
-        local best = rr
-        local bd = rr and (rr.Position - pos).Magnitude or math.huge
-        local names = { "Head", "Torso", "UpperTorso", "LowerTorso", "HumanoidRootPart" }
-        for i = 1, #names do
-            local v = ffc(rk, names[i])
-            if v and v:IsA("BasePart") then
-                local d = (v.Position - pos).Magnitude
-                if d < bd then
-                    best = v
-                    bd = d
-                end
-            end
-        end
-        return best
-    end
-    function auraGetStick()
-        local ch = getChar()
-        if not ch then return nil end
-        local s = aura.stick
-        if not (s and s.Parent) then
-            s = nil
-            for _, v in kids(ch) do
-                if auraIsStick(v) then
-                    s = v
-                    break
-                end
-            end
-            if not s then
-                local bp = aura.bp
-                if not (bp and bp.Parent) then
-                    local lp = Plrs.LocalPlayer
-                    bp = lp and ffc(lp, "Backpack") or nil
-                    aura.bp = bp
-                end
-                if bp then
-                    for _, v in kids(bp) do
-                        if auraIsStick(v) then
-                            s = v
-                            break
+            local function enforce()
+                if st.unlockThirdPerson then
+                    local currentCam = workspace.CurrentCamera
+                    if currentCam then
+                        currentCam.CameraType = Enum.CameraType.Custom
+                        local char = LocalPlayer.Character
+                        if char then
+                            local hum = char:FindFirstChild("Humanoid")
+                            if hum then
+                                currentCam.CameraSubject = hum
+                            end
                         end
                     end
                 end
-                if s and st.rakeAuraAutoEquip == true then
-                    local hum = getHum()
-                    if hum then
-                        pcall(function() hum:EquipTool(s) end)
-                    end
-                    return nil
-                end
             end
-            aura.stick = s
-            aura.ev = nil
-            aura.hp = nil
-        end
-        if not (s and s.Parent == ch) then
-            if s and st.rakeAuraAutoEquip == true then
-                local hum = getHum()
-                if hum then
-                    pcall(function() hum:EquipTool(s) end)
+            local con1 = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(enforce)
+            table.insert(thirdPersonConns, con1)
+            local con2 = LocalPlayer.CharacterAdded:Connect(function()
+                task.wait(0.1)
+                enforce()
+            end)
+            table.insert(thirdPersonConns, con2)
+            local con3 = RunService.Heartbeat:Connect(function()
+                if st.unlockThirdPerson then
+                    enforce()
                 end
-                auraClearStick()
-            end
-            return nil
-        end
-        local ev = aura.ev
-        if not (ev and ev.Parent) then
-            ev = ffc(s, "Event") or ffcr(s, "Event")
-            aura.ev = ev
-        end
-        local hp = aura.hp
-        if not (hp and hp.Parent) then
-            hp = ffc(s, "HitPart") or ffcr(s, "HitPart")
-            aura.hp = hp
-        end
-        return s, ev, hp
-    end
-    function auraHasPower()
-        local p = ffc(Rep, "StationPower")
-        if p and p.Value ~= true then return false end
-        return true
-    end
-    function auraHasStamina()
-        if st.infStamina == true then return true end
-        local g = ffc(Rep, "GSTMNA")
-        if not g then return true end
-        local ok, val = pcall(function() return g:Invoke() end)
-        return not ok or not val or val >= 12
-    end
-    function auraTakeStamina()
-        if st.infStamina == true then return end
-        local tks = ffc(Rep, "TKSMNA")
-        if tks then
-            pcall(function() tks:Fire(12) end)
-        end
-    end
-    function auraPrepHitpart(hp)
-        if not hp then return end
-        pcall(function()
-            hp.CanTouch = true
-            hp.CanQuery = true
+            end)
+            table.insert(thirdPersonConns, con3)
         end)
-    end
-    function auraSwing(ev, hit)
-        if not (ev and hit) then return end
-        pcall(function() ev:FireServer("S") end)
-        auraTakeStamina()
-        pcall(function() ev:FireServer("H", hit) end)
     end
 
     -- ========== AUTO HEAL ==========
     function findTool(name)
         name = tostring(name or ""):lower()
-        local lp = Plrs.LocalPlayer
-        local ch = getChar()
-        for _, root in { ch, lp and ffc(lp, "Backpack") } do
+        local ch = LocalPlayer.Character
+        for _, root in { ch, LocalPlayer:FindFirstChild("Backpack") } do
             if root then
-                for _, obj in kids(root) do
+                for _, obj in ipairs(root:GetChildren()) do
                     if obj:IsA("Tool") and obj.Name:lower():find(name, 1, true) then
                         return obj
                     end
@@ -1000,29 +1053,26 @@ if game.GameId == 847722000 then
     end
     function equipTool(tool)
         if not tool or not tool:IsA("Tool") then return false end
-        local ch = getChar()
+        local ch = LocalPlayer.Character
         if ch and tool:IsDescendantOf(ch) then return true end
         if st.healAutoEquip ~= true then return false end
-        local hum = getHum()
+        local hum = ch and ch:FindFirstChild("Humanoid")
         if not hum then return false end
         return pcall(function() hum:EquipTool(tool) end)
     end
     function firstAidReady(tool)
         if not tool or not tool.Parent then return false end
-        if valOf(ffc(tool, "Done"), false) == true or valOf(ffc(tool, "Doing"), false) == true then
-            return false
-        end
-        local uses = ffc(tool, "Uses")
-        if uses and tonumber(valOf(uses, 1)) and tonumber(valOf(uses, 1)) <= 0 then
-            return false
-        end
+        if tool:FindFirstChild("Done") and tool:FindFirstChild("Done").Value == true then return false end
+        if tool:FindFirstChild("Doing") and tool:FindFirstChild("Doing").Value == true then return false end
+        local uses = tool:FindFirstChild("Uses")
+        if uses and tonumber(uses.Value) and tonumber(uses.Value) <= 0 then return false end
         return true
     end
     function fireFirstAid(target)
         local tool = findTool("firstaid") or findTool("first aid")
         if not firstAidReady(tool) then return false end
         equipTool(tool)
-        local ev = ffc(tool, "RemoteEvent")
+        local ev = tool:FindFirstChild("RemoteEvent")
         if ev and ev:IsA("RemoteEvent") then
             if target then
                 return pcall(function() ev:FireServer("HealPlrStart", target) end)
@@ -1035,15 +1085,15 @@ if game.GameId == 847722000 then
         return false
     end
     function getHealTarget()
-        local ch = getChar()
-        local root = GET_HRP()
+        local ch = LocalPlayer.Character
+        local root = ch and ch:FindFirstChild("HumanoidRootPart")
         if not ch or not root then return nil end
         local best, dist = nil, 5
-        for _, plr in kids(Plrs) do
+        for _, plr in ipairs(Players:GetPlayers()) do
             local tc = plr.Character
             if tc and tc ~= ch then
-                local hum = ffc(tc, "Humanoid")
-                local hrp = ffc(tc, "HumanoidRootPart")
+                local hum = tc:FindFirstChild("Humanoid")
+                local hrp = tc:FindFirstChild("HumanoidRootPart")
                 if hum and hrp and hum.Health > 0 and hum.MaxHealth > 0 and hum.Health < hum.MaxHealth then
                     local pct = hum.Health / hum.MaxHealth * 100
                     local mag = (root.Position - hrp.Position).Magnitude
@@ -1059,7 +1109,7 @@ if game.GameId == 847722000 then
     function autoFirstAid()
         if st.autoHealSelf ~= true and st.autoHealPlayers ~= true then return false end
         if time() - (st.lastHealT or 0) < 7.5 then return false end
-        local hum = getHum()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
         if not hum or hum.Health <= 0 or hum.MaxHealth <= 0 then return false end
         if st.autoHealSelf == true and hum.Health < hum.MaxHealth and hum.Health / hum.MaxHealth * 100 <= (tonumber(st.healSelfAt) or 55) then
             if fireFirstAid(nil) then
@@ -1081,18 +1131,17 @@ if game.GameId == 847722000 then
     local powerRepairBusy = false
     function repairPowerStation()
         if powerRepairBusy == true then return false, "busy" end
-        local map = ffc(Ws, "Map")
-        local powerStation = map and ffc(map, "PowerStation")
-        local station = powerStation and ffc(powerStation, "StationFolder")
-        local guiPart = station and ffc(station, "StationGUIPart")
-        local prompt = guiPart and ffc(guiPart, "ProximityPrompt")
-        local ev = station and ffc(station, "RemoteEvent")
-        local progress = station and ffc(station, "Progress")
-        local stationPower = ffc(Rep, "StationPower")
-        local root = GET_HRP()
-        local hum = getHum()
-        local ch = getChar()
-        if not (station and guiPart and prompt and ev and root and hum and ch) then
+        local map = Workspace:FindFirstChild("Map")
+        local powerStation = map and map:FindFirstChild("PowerStation")
+        local station = powerStation and powerStation:FindFirstChild("StationFolder")
+        local guiPart = station and station:FindFirstChild("StationGUIPart")
+        local prompt = guiPart and guiPart:FindFirstChildWhichIsA("ProximityPrompt")
+        local ev = station and station:FindFirstChild("RemoteEvent")
+        local progress = station and station:FindFirstChild("Progress")
+        local stationPower = game:GetService("ReplicatedStorage"):FindFirstChild("StationPower")
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+        if not (station and guiPart and prompt and ev and root and hum) then
             return false, "missing"
         end
         if stationPower and stationPower.Value == true then
@@ -1108,7 +1157,7 @@ if game.GameId == 847722000 then
                 if toolbox then
                     pcall(function() hum:EquipTool(toolbox) end)
                     task.wait(0.15)
-                    useToolbox = toolbox.Parent == ch
+                    useToolbox = toolbox.Parent == LocalPlayer.Character
                 end
             end
             root.CFrame = guiPart.CFrame * CFrame.new(0,0,3)
@@ -1120,7 +1169,7 @@ if game.GameId == 847722000 then
             local activate = tonumber(prompt:GetAttribute("ActivateTime")) or 30
             local deadline = time() + math.max(activate + 8, 35)
             local success = false
-            while AllowRunService == true and root.Parent and time() < deadline do
+            while root.Parent and time() < deadline do
                 if stationPower and stationPower.Value == true then
                     success = true
                     break
@@ -1146,214 +1195,202 @@ if game.GameId == 847722000 then
         return ok and result == true, ok and (result == true and "done" or "timeout") or tostring(result)
     end
     function autoRestorePower()
-        if st.autoPowerRestore ~= true or powerRepairBusy == true then
-            return false
-        end
-        local stationPower = ffc(Rep, "StationPower")
-        if not stationPower or stationPower.Value == true then
-            return false
-        end
-        task.spawn(function()
-            repairPowerStation()
-        end)
+        if st.autoPowerRestore ~= true or powerRepairBusy == true then return false end
+        local stationPower = game:GetService("ReplicatedStorage"):FindFirstChild("StationPower")
+        if not stationPower or stationPower.Value == true then return false end
+        task.spawn(function() repairPowerStation() end)
         return true
     end
 
-    -- ========== BRING ITEMS ==========
-    function bringItems(type)
-        local cf = GET_HRP()
-        if not cf then
+    -- ========== RAKE KILLAURA ==========
+    local auraT = 0
+    local aura = { rk = nil, rr = nil, rh = nil, stick = nil, ev = nil, hp = nil }
+    function auraClearRake() aura.rk = nil; aura.rr = nil; aura.rh = nil end
+    function auraClearStick() aura.stick = nil; aura.ev = nil; aura.hp = nil end
+    function auraIsStick(v)
+        if not (v and v:IsA("Tool")) then return false end
+        local n = string.lower(v.Name)
+        return n == "stunstick" or (string.find(n, "stun",1,true) and string.find(n, "stick",1,true)) ~= nil
+    end
+    function auraGetRake()
+        local rk = aura.rk
+        if not (rk and rk.Parent) then
+            rk = Workspace:FindFirstChild("Rake", true)
+            aura.rk = rk
+            aura.rr = nil
+            aura.rh = nil
+        end
+        if not rk then return nil end
+        local rh = aura.rh
+        if not (rh and rh.Parent) then
+            rh = rk:FindFirstChild("Monster") or rk:FindFirstChildWhichIsA("Humanoid")
+            aura.rh = rh
+        end
+        if rh and rh.Health and rh.Health <= 0 then return nil end
+        local rr = aura.rr
+        if not (rr and rr.Parent) then
+            rr = rk:FindFirstChild("HumanoidRootPart") or rk:FindFirstChild("HumanoidRootPart", true)
+            aura.rr = rr
+        end
+        if not rr then return nil end
+        return rk, rr, rh
+    end
+    function auraGetPart(rk, rr, pos)
+        local best = rr
+        local bd = rr and (rr.Position - pos).Magnitude or math.huge
+        local names = { "Head", "Torso", "UpperTorso", "LowerTorso", "HumanoidRootPart" }
+        for i = 1, #names do
+            local v = rk:FindFirstChild(names[i])
+            if v and v:IsA("BasePart") then
+                local d = (v.Position - pos).Magnitude
+                if d < bd then
+                    best = v
+                    bd = d
+                end
+            end
+        end
+        return best
+    end
+    function auraGetStick()
+        local ch = LocalPlayer.Character
+        if not ch then return nil end
+        local s = aura.stick
+        if not (s and s.Parent) then
+            s = nil
+            for _, v in ipairs(ch:GetChildren()) do
+                if auraIsStick(v) then
+                    s = v
+                    break
+                end
+            end
+            if s and st.rakeAuraAutoEquip == true then
+                local hum = ch:FindFirstChild("Humanoid")
+                if hum then
+                    pcall(function() hum:EquipTool(s) end)
+                end
+                return nil
+            end
+            aura.stick = s
+            aura.ev = nil
+            aura.hp = nil
+        end
+        if not (s and s.Parent == ch) then
+            if s and st.rakeAuraAutoEquip == true then
+                local hum = ch:FindFirstChild("Humanoid")
+                if hum then
+                    pcall(function() hum:EquipTool(s) end)
+                end
+                auraClearStick()
+            end
+            return nil
+        end
+        local ev = aura.ev
+        if not (ev and ev.Parent) then
+            ev = s:FindFirstChild("Event") or s:FindFirstChild("Event", true)
+            aura.ev = ev
+        end
+        local hp = aura.hp
+        if not (hp and hp.Parent) then
+            hp = s:FindFirstChild("HitPart") or s:FindFirstChild("HitPart", true)
+            aura.hp = hp
+        end
+        return s, ev, hp
+    end
+    function auraHasPower()
+        local p = game:GetService("ReplicatedStorage"):FindFirstChild("StationPower")
+        if p and p.Value ~= true then return false end
+        return true
+    end
+    function auraHasStamina()
+        if st.infStamina == true then return true end
+        local g = game:GetService("ReplicatedStorage"):FindFirstChild("GSTMNA")
+        if not g then return true end
+        local ok, val = pcall(function() return g:Invoke() end)
+        return not ok or not val or val >= 12
+    end
+    function auraTakeStamina()
+        if st.infStamina == true then return end
+        local tks = game:GetService("ReplicatedStorage"):FindFirstChild("TKSMNA")
+        if tks then
+            pcall(function() tks:Fire(12) end)
+        end
+    end
+    function auraPrepHitpart(hp)
+        if not hp then return end
+        pcall(function() hp.CanTouch = true; hp.CanQuery = true end)
+    end
+    function auraSwing(ev, hit)
+        if not (ev and hit) then return end
+        pcall(function() ev:FireServer("S") end)
+        auraTakeStamina()
+        pcall(function() ev:FireServer("H", hit) end)
+    end
+
+    -- ========== BRING ITEMS (spawn on head) ==========
+    function bringScraps()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
             notify("Error", "Character not found!", 2)
             return 0
         end
+        
         local count = 0
-        if type == "scraps" then
-            local filter = Ws:FindFirstChild("Filter")
-            local root = filter and filter:FindFirstChild("ScrapSpawns") or Ws
-            local function isInCharacter(obj)
-                for _, plr in Plrs:GetPlayers() do
-                    local ch = plr.Character
-                    if ch and obj:IsDescendantOf(ch) then
-                        return true
-                    end
-                end
-                return false
-            end
-            for _, obj in desc(root) do
-                if obj.Name:lower() == "scrap" and obj:IsA("BasePart") and not isInCharacter(obj) then
-                    pcall(function()
-                        obj.CFrame = cf.CFrame * CFrame.new((count % 5) * 1.5, 1.5 + math.floor(count / 5) * 0.35, 0)
-                        obj.AssemblyLinearVelocity = Vector3.zero
-                        obj.AssemblyAngularVelocity = Vector3.zero
-                    end)
-                    count = count + 1
+        local filter = Workspace:FindFirstChild("Filter")
+        local root = filter and filter:FindFirstChild("ScrapSpawns") or Workspace
+        
+        local function isInCharacter(obj)
+            for _, plr in ipairs(Players:GetPlayers()) do
+                local ch = plr.Character
+                if ch and obj:IsDescendantOf(ch) then
+                    return true
                 end
             end
-        elseif type == "flaregun" then
-            local flaregun = ffcr(Ws, "FlareGunPickUp")
-            if not flaregun then
-                for _, obj in desc(Ws) do
-                    if obj:IsA("BasePart") and obj.Name:lower():find("flaregun") then
-                        flaregun = obj
-                        break
-                    end
-                end
-            end
-            if flaregun then
+            return false
+        end
+        
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if isScrap(obj) and obj:IsA("BasePart") and not isInCharacter(obj) then
                 pcall(function()
-                    if flaregun:IsA("BasePart") then
-                        flaregun.CFrame = cf.CFrame * CFrame.new(0, 1.5, 0)
-                        flaregun.AssemblyLinearVelocity = Vector3.zero
-                        flaregun.AssemblyAngularVelocity = Vector3.zero
-                    elseif flaregun:IsA("Model") then
-                        flaregun:PivotTo(cf.CFrame * CFrame.new(0, 1.5, 0))
-                    end
-                    count = 1
+                    obj.CFrame = hrp.CFrame * CFrame.new(0, 3.5 + (count * 0.5), 0)
+                    obj.AssemblyLinearVelocity = Vector3.zero
+                    obj.AssemblyAngularVelocity = Vector3.zero
                 end)
+                count = count + 1
             end
         end
+        
         return count
     end
 
-    -- ========== INSTA DROP/TRAP ==========
-    function instaDropEnabled(value)
-        if value then
-            local function fastDrop(box)
-                if not box or box.Name ~= "Box" then return end
-                local gui = box:FindFirstChild("GUIPart")
-                if gui then
-                    local prompt = gui:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    if prompt then
-                        pcall(function()
-                            prompt.HoldDuration = 0
-                            prompt.RequiresLineOfSight = false
-                            prompt.MaxActivationDistance = 25
-                        end)
-                    end
-                end
+    function bringFlaregun()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            notify("Error", "Character not found!", 2)
+            return 0
+        end
+        
+        local flaregun = nil
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if isFlareGun(obj) then
+                flaregun = obj
+                break
             end
-            Run.Heartbeat:Connect(function()
-                if _G.InstaOpenSupplyDrop then
-                    local debris = Ws:FindFirstChild("Debris")
-                    if debris then
-                        local crates = debris:FindFirstChild("SupplyCrates") or debris:FindFirstChild("SupplyCreates")
-                        if crates then
-                            for _, box in kids(crates) do
-                                fastDrop(box)
-                            end
-                        end
-                    end
+        end
+        
+        if flaregun then
+            pcall(function()
+                if flaregun:IsA("BasePart") then
+                    flaregun.CFrame = hrp.CFrame * CFrame.new(0, 3.5, 0)
+                    flaregun.AssemblyLinearVelocity = Vector3.zero
+                    flaregun.AssemblyAngularVelocity = Vector3.zero
+                elseif flaregun:IsA("Model") then
+                    flaregun:PivotTo(hrp.CFrame * CFrame.new(0, 3.5, 0))
                 end
             end)
+            return 1
         end
-    end
-    function instaTrapEnabled(value)
-        if value then
-            local function fastTrap(trap)
-                if trap.Name ~= "RakeTrapModel" then return end
-                local prompt = trap:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt then
-                    pcall(function()
-                        prompt.HoldDuration = 0
-                        prompt.RequiresLineOfSight = false
-                        prompt.MaxActivationDistance = 25
-                    end)
-                end
-            end
-            Run.Heartbeat:Connect(function()
-                if _G.InstaCloseRakeTrap then
-                    local debris = Ws:FindFirstChild("Debris")
-                    if debris then
-                        local traps = debris:FindFirstChild("Traps")
-                        if traps then
-                            for _, trap in kids(traps) do
-                                fastTrap(trap)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-
-    -- ========== WALKSPEED ==========
-    function applyWalkSpeed()
-        if not Run or st.walkspeedOn ~= true then return end
-        local hum = getHum()
-        if not hum or not hum.Parent then return end
-        local spd = math.clamp(tonumber(st.walkspeed) or 16, 0, 30.5)
-        pcall(function()
-            if hum.WalkSpeed ~= spd then
-                hum.WalkSpeed = spd
-            end
-            if hum.UseJumpPower ~= false then
-                hum.JumpPower = 50
-            else
-                hum.JumpHeight = 7.2
-            end
-        end)
-    end
-
-    -- ========== THIRD PERSON ==========
-    local thirdPersonActive = false
-    local thirdPersonConns = {}
-    function applyThirdPerson(force)
-        if st.unlockThirdPerson ~= true and force ~= true then
-            if thirdPersonActive then
-                thirdPersonActive = false
-                for _, c in thirdPersonConns do
-                    pcall(function() c:Disconnect() end)
-                end
-                thirdPersonConns = {}
-            end
-            return
-        end
-        thirdPersonActive = true
-        pcall(function()
-            local cam = workspace.CurrentCamera
-            if cam then
-                cam.CameraType = Enum.CameraType.Custom
-                local char = getChar()
-                if char then
-                    local hum = ffc(char, "Humanoid")
-                    if hum then
-                        cam.CameraSubject = hum
-                    end
-                end
-                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-            end
-            local function enforce()
-                if st.unlockThirdPerson then
-                    local currentCam = workspace.CurrentCamera
-                    if currentCam then
-                        currentCam.CameraType = Enum.CameraType.Custom
-                        local char = getChar()
-                        if char then
-                            local hum = ffc(char, "Humanoid")
-                            if hum then
-                                currentCam.CameraSubject = hum
-                            end
-                        end
-                    end
-                end
-            end
-            local con1 = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(enforce)
-            table.insert(thirdPersonConns, con1)
-            local lp = Plrs.LocalPlayer
-            if lp then
-                local con2 = lp.CharacterAdded:Connect(function()
-                    task.wait(0.1)
-                    enforce()
-                end)
-                table.insert(thirdPersonConns, con2)
-            end
-            local con3 = Run.Heartbeat:Connect(function()
-                if st.unlockThirdPerson then
-                    enforce()
-                end
-            end)
-            table.insert(thirdPersonConns, con3)
-        end)
+        
+        return 0
     end
 
     -- ========== INFO BUBBLE ==========
@@ -1382,33 +1419,14 @@ if game.GameId == 847722000 then
         end
         return string.format("%.1f", pct)
     end
-    function bubbleParent()
-        local ok, hui = pcall(function()
-            if type(gethui) == "function" then
-                return gethui()
-            end
-        end)
-        if ok and typeof(hui) == "Instance" then
-            return hui
-        end
-        local pg = Plrs.LocalPlayer and ffc(Plrs.LocalPlayer, "PlayerGui")
-        if pg then
-            return pg
-        end
-        local ok2, cg = pcall(function()
-            return ClonedService("CoreGui")
-        end)
-        if ok2 and cg then
-            return cg
-        end
-        return nil
-    end
     function makeBubble()
         if infoRoot and infoRoot.Parent and infoLbl and infoLbl.Parent then
             return infoRoot
         end
-        local par = bubbleParent()
+        
+        local par = LocalPlayer:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
         if not par then return nil end
+        
         local gui = par:FindFirstChild("__RakeInfoBubbleGui")
         if not gui then
             gui = Instance.new("ScreenGui")
@@ -1419,6 +1437,7 @@ if game.GameId == 847722000 then
             gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
             gui.Parent = par
         end
+        
         local root = gui:FindFirstChild("Bubble")
         if not root then
             root = Instance.new("Frame")
@@ -1446,6 +1465,7 @@ if game.GameId == 847722000 then
             pad.PaddingRight = UDim.new(0,10)
             pad.Parent = root
         end
+        
         local lbl = root:FindFirstChild("Text")
         if not lbl then
             lbl = Instance.new("TextLabel")
@@ -1462,12 +1482,15 @@ if game.GameId == 847722000 then
             lbl.RichText = false
             lbl.Parent = root
         end
+        
         infoBubble = gui
         infoRoot = root
         infoLbl = lbl
+        
+        -- Drag functionality
         if not infoDrag or infoDrag.root ~= root then
             infoDrag = {on = false, root = root}
-            bind(root.InputBegan, function(input)
+            root.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     infoDrag.on = true
                     infoDrag.input = input
@@ -1475,19 +1498,15 @@ if game.GameId == 847722000 then
                     infoDrag.pos = root.Position
                 end
             end)
-            bind(root.InputEnded, function(input)
+            root.InputEnded:Connect(function(input)
                 if input == infoDrag.input then
                     infoDrag.on = false
                     infoDrag.input = nil
                 end
             end)
-            bind(UserInputService.InputChanged, function(input)
-                if infoDrag.on ~= true or not infoDrag.input then
-                    return
-                end
-                if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
-                    return
-                end
+            game:GetService("UserInputService").InputChanged:Connect(function(input)
+                if infoDrag.on ~= true or not infoDrag.input then return end
+                if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
                 local delta = input.Position - infoDrag.start
                 root.Position = UDim2.new(infoDrag.pos.X.Scale, infoDrag.pos.X.Offset + delta.X, infoDrag.pos.Y.Scale, infoDrag.pos.Y.Offset + delta.Y)
             end)
@@ -1520,14 +1539,13 @@ if game.GameId == 847722000 then
         syncBubble()
     end
 
-    -- ========== BLOOD HOUR AUTO NOTIFICATION ==========
+    -- ========== BLOOD HOUR ALERT ==========
     local bloodHourCheckT = 0
-    bind(Run.Heartbeat, function(dt)
-        if AllowRunService ~= true then return end
+    RunService.Heartbeat:Connect(function(dt)
         bloodHourCheckT = bloodHourCheckT + dt
         if bloodHourCheckT < 1 then return end
         bloodHourCheckT = 0
-        local bh = ffc(Rep, "InitiateBloodHour")
+        local bh = game:GetService("ReplicatedStorage"):FindFirstChild("InitiateBloodHour")
         if bh and bh.Value == true then
             notify("🌕 ALERT", "HOLY JESUS BLOOD HOUR IS COMING NOW", 5)
             bh.Value = false
@@ -1567,7 +1585,7 @@ if game.GameId == 847722000 then
         task.delay(60, function() self.notifiedFlareguns[id] = nil end)
     end
     function SpawnNotifier:startListening()
-        bind(Ws.DescendantAdded, function(obj)
+        Workspace.DescendantAdded:Connect(function(obj)
             if obj.Name == "Scrap" and obj:IsA("BasePart") then
                 self:notifyScrap(obj)
             end
@@ -1576,18 +1594,18 @@ if game.GameId == 847722000 then
             end
         end)
         task.delay(2, function()
-            local filter = ffc(Ws, "Filter")
-            local scrapRoot = filter and ffc(filter, "ScrapSpawns")
+            local filter = Workspace:FindFirstChild("Filter")
+            local scrapRoot = filter and filter:FindFirstChild("ScrapSpawns")
             if scrapRoot then
-                for _, obj in desc(scrapRoot) do
+                for _, obj in ipairs(scrapRoot:GetDescendants()) do
                     if obj.Name == "Scrap" and obj:IsA("BasePart") then
                         self:notifyScrap(obj)
                     end
                 end
             end
-            local fl = ffcr(Ws, "FlareGunPickUp")
+            local fl = Workspace:FindFirstChild("FlareGunPickUp", true)
             if not fl then
-                for _, obj in desc(Ws) do
+                for _, obj in ipairs(Workspace:GetDescendants()) do
                     if obj:IsA("BasePart") and obj.Name:lower():find("flaregun") then
                         fl = obj
                         break
@@ -1598,8 +1616,120 @@ if game.GameId == 847722000 then
         end)
     end
 
-    -- ========== GUI ==========
+    -- ========== UI ==========
+    -- ESP Tab
+    espTab:CreateSection({ name = "ESP Toggles" })
+    
+    espTab:CreateToggle({
+        name = "ESP Players (White)",
+        currentValue = ESPConfig.Players.Enabled,
+        callback = function(Value)
+            ESPConfig.Players.Enabled = Value
+            cfgSet("ESP_Players", Value)
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    if Value then
+                        ESP:AddESP(player.Character, "Players", player.Name)
+                    else
+                        ESP:RemoveESP(player.Character)
+                    end
+                end
+            end
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "ESP Rake (Red)",
+        currentValue = ESPConfig.Rake.Enabled,
+        callback = function(Value)
+            ESPConfig.Rake.Enabled = Value
+            cfgSet("ESP_Rake", Value)
+            local rake = Workspace:FindFirstChild("Rake", true)
+            if rake then
+                if Value then
+                    ESP:AddESP(rake, "Rake", "RAKE")
+                else
+                    ESP:RemoveESP(rake)
+                end
+            end
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "ESP Flare Gun (Yellow)",
+        currentValue = ESPConfig.FlareGun.Enabled,
+        callback = function(Value)
+            ESPConfig.FlareGun.Enabled = Value
+            cfgSet("ESP_FlareGun", Value)
+            if not Value then
+                local toRemove = {}
+                for object, highlight in pairs(ESP.Highlights) do
+                    if isFlareGun(object) then
+                        table.insert(toRemove, object)
+                    end
+                end
+                for _, object in ipairs(toRemove) do
+                    ESP:RemoveESP(object)
+                end
+            end
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "ESP Scrap (Brown)",
+        currentValue = ESPConfig.Scrap.Enabled,
+        callback = function(Value)
+            ESPConfig.Scrap.Enabled = Value
+            cfgSet("ESP_Scrap", Value)
+            if not Value then
+                local toRemove = {}
+                for object, highlight in pairs(ESP.Highlights) do
+                    if isScrap(object) then
+                        table.insert(toRemove, object)
+                    end
+                end
+                for _, object in ipairs(toRemove) do
+                    ESP:RemoveESP(object)
+                end
+            end
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "ESP Locations (Fixed Colors)",
+        currentValue = ESPConfig.Locations.Enabled,
+        callback = function(Value)
+            ESPConfig.Locations.Enabled = Value
+            cfgSet("ESP_Locations", Value)
+            ESP:UpdateLocationMarkers()
+        end
+    })
+
+    espTab:CreateSection({ name = "ESP Settings" })
+    
+    espTab:CreateSlider({
+        name = "Update Interval (seconds)",
+        min = 0.1,
+        max = 2.0,
+        default = UPDATE_INTERVAL,
+        callback = function(Value)
+            UPDATE_INTERVAL = Value
+        end
+    })
+
+    espTab:CreateSlider({
+        name = "Scan Interval (seconds)",
+        min = 0.5,
+        max = 3.0,
+        default = OBJECT_SCAN_INTERVAL,
+        callback = function(Value)
+            OBJECT_SCAN_INTERVAL = Value
+        end
+    })
+
     -- Visuals Tab
+    visualTab:CreateSection({ name = "Visual Settings" })
+    
     visualTab:CreateToggle({
         name = "Fullbright",
         currentValue = st.fullbright,
@@ -1609,6 +1739,7 @@ if game.GameId == 847722000 then
             applyFullbright()
         end
     })
+
     visualTab:CreateSlider({
         name = "Field of View (FOV)",
         min = 1,
@@ -1620,6 +1751,7 @@ if game.GameId == 847722000 then
             if st.fovOn then applyFov() end
         end
     })
+
     visualTab:CreateToggle({
         name = "Toggle FOV",
         currentValue = st.fovOn,
@@ -1627,16 +1759,17 @@ if game.GameId == 847722000 then
             st.fovOn = value
             cfgSet("fovOn", value)
             if value then
-                bindFovCam(Ws.CurrentCamera or workspace.CurrentCamera)
+                bindFovCam(workspace.CurrentCamera)
             else
                 wipeFovConns()
-                local cam = Ws.CurrentCamera or workspace.CurrentCamera
+                local cam = workspace.CurrentCamera
                 if cam then
                     pcall(function() cam.FieldOfView = 70 end)
                 end
             end
         end
     })
+
     visualTab:CreateToggle({
         name = "Unlock Third Person",
         currentValue = st.unlockThirdPerson,
@@ -1646,6 +1779,7 @@ if game.GameId == 847722000 then
             applyThirdPerson()
         end
     })
+
     visualTab:CreateToggle({
         name = "Info Bubble",
         currentValue = st.infoBubble,
@@ -1658,6 +1792,8 @@ if game.GameId == 847722000 then
     })
 
     -- Player Tab
+    playerTab:CreateSection({ name = "Player Settings" })
+    
     playerTab:CreateSlider({
         name = "Min Zoom",
         min = 0.5,
@@ -1671,6 +1807,7 @@ if game.GameId == 847722000 then
             applyZoom()
         end
     })
+
     playerTab:CreateSlider({
         name = "Max Zoom",
         min = 0.5,
@@ -1682,6 +1819,7 @@ if game.GameId == 847722000 then
             applyZoom()
         end
     })
+
     playerTab:CreateSlider({
         name = "WalkSpeed",
         min = 0,
@@ -1693,6 +1831,7 @@ if game.GameId == 847722000 then
             if st.walkspeedOn then applyWalkSpeed() end
         end
     })
+
     playerTab:CreateToggle({
         name = "Toggle WalkSpeed",
         currentValue = st.walkspeedOn,
@@ -1701,12 +1840,12 @@ if game.GameId == 847722000 then
             cfgSet("walkspeedOn", value)
             if value then applyWalkSpeed()
             else
-                local hum = getHum()
-                if hum then pcall(function() hum.WalkSpeed = 16 end)
-                end
+                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+                if hum then pcall(function() hum.WalkSpeed = 16 end) end
             end
         end
     })
+
     playerTab:CreateToggle({
         name = "Infinite Stamina",
         currentValue = st.infStamina,
@@ -1724,6 +1863,7 @@ if game.GameId == 847722000 then
             end
         end
     })
+
     playerTab:CreateToggle({
         name = "No Fall Damage",
         currentValue = st.noFall,
@@ -1733,6 +1873,7 @@ if game.GameId == 847722000 then
             applyNoFall()
         end
     })
+
     playerTab:CreateToggle({
         name = "Auto Heal Self",
         currentValue = st.autoHealSelf,
@@ -1741,6 +1882,7 @@ if game.GameId == 847722000 then
             cfgSet("autoHealSelf", value)
         end
     })
+
     playerTab:CreateSlider({
         name = "Self Heal Below %",
         min = 1,
@@ -1751,6 +1893,7 @@ if game.GameId == 847722000 then
             cfgSet("healSelfAt", st.healSelfAt)
         end
     })
+
     playerTab:CreateToggle({
         name = "Auto Heal Players",
         currentValue = st.autoHealPlayers,
@@ -1759,6 +1902,7 @@ if game.GameId == 847722000 then
             cfgSet("autoHealPlayers", value)
         end
     })
+
     playerTab:CreateSlider({
         name = "Player Heal Below %",
         min = 1,
@@ -1769,6 +1913,7 @@ if game.GameId == 847722000 then
             cfgSet("healPlayerAt", st.healPlayerAt)
         end
     })
+
     playerTab:CreateToggle({
         name = "Auto Equip FirstAid",
         currentValue = st.healAutoEquip,
@@ -1779,107 +1924,26 @@ if game.GameId == 847722000 then
     })
 
     -- Exploits Tab
-    exploitTab:CreateSection({ name = "ESP" })
-    exploitTab:CreateToggle({
-        name = "Player ESP",
-        currentValue = st.playerEsp,
-        callback = function(value)
-            st.playerEsp = value
-            cfgSet("playerEsp", value)
-            if not value then cleanupEsp("players") end
-            if value then espScan() end
-        end
-    })
-    exploitTab:CreateToggle({
-        name = "Flare Gun ESP",
-        currentValue = st.flareEsp,
-        callback = function(value)
-            st.flareEsp = value
-            cfgSet("flareEsp", value)
-            if not value then cleanupEsp("flare") end
-            if value then espScan() end
-        end
-    })
-    exploitTab:CreateToggle({
-        name = "Location ESP",
-        currentValue = st.locEsp,
-        callback = function(value)
-            st.locEsp = value
-            cfgSet("locEsp", value)
-            if not value then cleanupEsp("locs") end
-            if value then espScan() end
-        end
-    })
-    exploitTab:CreateToggle({
-        name = "Show Distance (ESP)",
-        currentValue = st.espDist,
-        callback = function(value)
-            st.espDist = value
-            cfgSet("espDist", value)
-        end
-    })
-    exploitTab:CreateToggle({
-        name = "ESP Highlights",
-        currentValue = st.espChams,
-        callback = function(value)
-            st.espChams = value
-            cfgSet("espChams", value)
-            cleanupEsp("players")
-            cleanupEsp("flare")
-            if value then espScan() end
-        end
-    })
-    exploitTab:CreateSlider({
-        name = "ESP Text Size",
-        min = 8,
-        max = 24,
-        default = st.espSize,
-        callback = function(value)
-            st.espSize = math.clamp(value, 8, 24)
-            cfgSet("espSize", st.espSize)
-            local function eachEspDraw(fn)
-                for _, it in pairs(esp.players) do
-                    if it and it.d then pcall(fn, it.d) end
-                end
-                if esp.flare and esp.flare.d then pcall(fn, esp.flare.d) end
-                for _, d in pairs(esp.locs) do
-                    if d then pcall(fn, d) end
-                end
-            end
-            eachEspDraw(function(d)
-                d.Size = st.espSize
-                d.Outline = false
-            end)
-        end
-    })
-    exploitTab:CreateSlider({
-        name = "ESP Refresh (seconds)",
-        min = 0.5,
-        max = 5,
-        default = st.espScan,
-        callback = function(value)
-            st.espScan = math.clamp(value, 0.5, 5)
-            cfgSet("espScan", st.espScan)
-        end
-    })
-
-    exploitTab:CreateSection({ name = "Bring Items" })
+    exploitTab:CreateSection({ name = "Bring Items (Spawns on Head)" })
+    
     exploitTab:CreateButton({
         name = "Bring Scraps",
         callback = function()
-            local count = bringItems("scraps")
+            local count = bringScraps()
             notify("Scraps", "Brought " .. count .. " scrap" .. (count == 1 and "" or "s"), 3)
         end
     })
+
     exploitTab:CreateButton({
         name = "Bring Flaregun",
         callback = function()
-            local count = bringItems("flaregun")
+            local count = bringFlaregun()
             notify("Flaregun", count > 0 and "Brought flaregun!" or "No flaregun found!", 3)
         end
     })
 
     exploitTab:CreateSection({ name = "Power Restoration" })
+    
     exploitTab:CreateButton({
         name = "Restore Power Now",
         callback = function()
@@ -1897,6 +1961,7 @@ if game.GameId == 847722000 then
             end)
         end
     })
+
     exploitTab:CreateToggle({
         name = "Auto Restore Power",
         currentValue = st.autoPowerRestore,
@@ -1906,6 +1971,7 @@ if game.GameId == 847722000 then
             if value then autoRestorePower() end
         end
     })
+
     exploitTab:CreateToggle({
         name = "Use Toolbox For Power",
         currentValue = st.powerRestoreUseToolbox,
@@ -1916,6 +1982,7 @@ if game.GameId == 847722000 then
     })
 
     exploitTab:CreateSection({ name = "Killaura" })
+    
     exploitTab:CreateToggle({
         name = "Rake Killaura",
         currentValue = st.rakeAura,
@@ -1924,6 +1991,7 @@ if game.GameId == 847722000 then
             cfgSet("rakeAura", value)
         end
     })
+
     exploitTab:CreateSlider({
         name = "Killaura Range",
         min = 6,
@@ -1934,6 +2002,7 @@ if game.GameId == 847722000 then
             cfgSet("rakeAuraRange", st.rakeAuraRange)
         end
     })
+
     exploitTab:CreateSlider({
         name = "Killaura Delay",
         min = 0.05,
@@ -1944,6 +2013,7 @@ if game.GameId == 847722000 then
             cfgSet("rakeAuraDelay", st.rakeAuraDelay)
         end
     })
+
     exploitTab:CreateToggle({
         name = "Auto Equip Stunstick",
         currentValue = st.rakeAuraAutoEquip,
@@ -1953,27 +2023,10 @@ if game.GameId == 847722000 then
         end
     })
 
-    exploitTab:CreateSection({ name = "Insta" })
-    exploitTab:CreateToggle({
-        name = "Insta Open Supply Drop",
-        currentValue = false,
-        callback = function(value)
-            _G.InstaOpenSupplyDrop = value
-            instaDropEnabled(value)
-        end
-    })
-    exploitTab:CreateToggle({
-        name = "Insta Close Rake Trap",
-        currentValue = false,
-        callback = function(value)
-            _G.InstaCloseRakeTrap = value
-            instaTrapEnabled(value)
-        end
-    })
-
     exploitTab:CreateSection({ name = "Spawn Notifications" })
+    
     exploitTab:CreateToggle({
-        name = "🔧 Notify on Spawns",
+        name = "Notify on Spawns",
         currentValue = st.spawnNotifications,
         callback = function(value)
             st.spawnNotifications = value
@@ -1983,6 +2036,8 @@ if game.GameId == 847722000 then
     })
 
     -- Settings Tab
+    settingsTab:CreateSection({ name = "Settings" })
+    
     settingsTab:CreateButton({
         name = "Save Settings Now",
         callback = function()
@@ -1990,6 +2045,7 @@ if game.GameId == 847722000 then
             notify("Settings", "Saved successfully.", 2)
         end
     })
+
     settingsTab:CreateButton({
         name = "Reset All Settings",
         callback = function()
@@ -1998,16 +2054,14 @@ if game.GameId == 847722000 then
             notify("Settings", "Reset all settings. Please reload the script.", 3)
         end
     })
+
     settingsTab:CreateButton({
         name = "Unload Script",
         callback = function()
-            AllowRunService = false
-            saveCfg(saved)
+            ESP:Stop()
             wipeFullbrightConns()
             wipeFovConns()
             wipeZoomConns()
-            cleanupEsp()
-            wipeConns()
             for _, c in thirdPersonConns do
                 pcall(function() c:Disconnect() end)
             end
@@ -2018,9 +2072,6 @@ if game.GameId == 847722000 then
     })
 
     -- ========== INITIALIZE ==========
-    local AllowRunService = true
-
-    -- Show welcome notification FIRST
     showWelcomeNotification()
 
     -- Apply initial states
@@ -2035,110 +2086,36 @@ if game.GameId == 847722000 then
         end)
     end
     if st.noFall then applyNoFall() end
-    if st.fovOn then
-        bindFovCam(Ws.CurrentCamera or workspace.CurrentCamera)
-    end
+    if st.fovOn then bindFovCam(workspace.CurrentCamera) end
     if st.walkspeedOn then applyWalkSpeed() end
     if st.unlockThirdPerson then applyThirdPerson() end
     if st.infoBubble then syncBubble() end
-
-    bindZoomPlayer(Plrs.LocalPlayer)
     if st.spawnNotifications then SpawnNotifier:startListening() end
 
-    -- Initial ESP scan
-    task.wait(0.5)
-    espScan()
+    bindZoomPlayer(LocalPlayer)
+    ESP:Start()
 
     -- Respawn handler
-    local function onRespawn()
-        if st.unlockThirdPerson then
-            task.wait(0.5)
-            applyThirdPerson(true)
-        end
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if st.unlockThirdPerson then applyThirdPerson(true) end
         if st.fullbright then applyFullbright() end
         if st.infStamina then applyInfTabs() end
         if st.noFall then applyNoFall() end
         if st.fovOn then applyFov() end
-        if st.walkspeedOn then
-            task.wait(0.1)
-            applyWalkSpeed()
-        end
+        if st.walkspeedOn then task.wait(0.1); applyWalkSpeed() end
         if st.infoBubble then syncBubble() end
         applyZoom()
-        task.wait(0.3)
-        espScan()
-    end
-    local lp = Plrs.LocalPlayer
-    if lp then bind(lp.CharacterAdded, onRespawn) end
+    end)
 
-    -- Main update loop (ESP refresh every st.espScan seconds)
+    -- Main loop
     local espTimer = 0
-    bind(Run.Heartbeat, function(dt)
-        if not AllowRunService then return end
-
-        -- ESP updates - scan and update positions
-        if espAny() then
-            espTimer = espTimer + dt
-            if espTimer >= (st.espScan or 2.0) then
-                espTimer = 0
-                espScan()
-            end
-
-            -- Update Player ESP positions
-            for p, it in pairs(esp.players) do
-                if it and it.o and it.o.Parent then
-                    local ch = it.o
-                    local head = ch and ffcr(ch, "Head")
-                    local pos = espPosOf(head or ch)
-                    if pos then
-                        espShow(it.d, pos, p.Name)
-                    else
-                        if it.d then it.d.Visible = false end
-                    end
-                else
-                    if it and it.d then it.d.Visible = false end
-                end
-            end
-
-            -- Update Flare Gun ESP
-            if esp.flare and esp.flare.o and esp.flare.o.Parent then
-                local fl = esp.flare.o
-                local part = fl and (ffcr(fl, "FlareGun") or fl)
-                local pos = espPosOf(part or fl)
-                if pos then
-                    espShow(esp.flare.d, pos, "Flare Gun")
-                else
-                    if esp.flare.d then esp.flare.d.Visible = false end
-                end
-            elseif esp.flare and esp.flare.d then
-                esp.flare.d.Visible = false
-            end
-
-            -- Update Location ESP
-            if st.locEsp then
-                for _, loc in ipairs(LocationData) do
-                    local d = esp.locs[loc.Name]
-                    if d then
-                        espShow(d, loc.Position, "[LOC] "..loc.Name)
-                    end
-                end
-            end
-        end
-
-        -- Infinite stamina
-        if st.infStamina then
-            infSys.fast = infSys.fast + dt
-            if infSys.fast >= 0.75 then
-                infSys.fast = 0
-                applyInfTabs()
-            end
-        end
-
+    RunService.Heartbeat:Connect(function(dt)
         -- Killaura
         if st.rakeAura then
             auraT = auraT + dt
             pcall(function()
-                local root = GET_HRP()
+                local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if not root then return end
                 local rk, rr = auraGetRake()
                 if not (rk and rr) then return end
@@ -2168,8 +2145,8 @@ if game.GameId == 847722000 then
         -- Info Bubble updates
         if st.infoBubble then
             pcall(function()
-                local rk = ffcr(Ws, "Rake")
-                local tv = ffcr(rk, "TargetVal")
+                local rk = Workspace:FindFirstChild("Rake", true)
+                local tv = rk and rk:FindFirstChild("TargetVal")
                 local val = tv and tv.Value
                 if val and val.Parent then
                     setInfoTarget("Rake's Target: " .. tostring(val.Parent))
@@ -2178,35 +2155,26 @@ if game.GameId == 847722000 then
                 end
             end)
             pcall(function()
-                local sec = fmtTime(valOf(ffc(Rep, "Timer"), 0))
-                if valOf(ffc(Rep, "Night"), false) == true then
+                local timer = game:GetService("ReplicatedStorage"):FindFirstChild("Timer")
+                local night = game:GetService("ReplicatedStorage"):FindFirstChild("Night")
+                local sec = fmtTime(timer and timer.Value or 0)
+                if night and night.Value == true then
                     setInfoTime("Time Until Day: " .. sec)
                 else
                     setInfoTime("Time Until Night: " .. sec)
                 end
             end)
             pcall(function()
-                local powerValues = ffc(Rep, "PowerValues")
-                local powerLevel = valOf(powerValues and ffc(powerValues, "PowerLevel"), 1000)
-                setInfoPower("Power: " .. fmtPower(powerLevel) .. "%")
+                local powerValues = game:GetService("ReplicatedStorage"):FindFirstChild("PowerValues")
+                local powerLevel = powerValues and powerValues:FindFirstChild("PowerLevel")
+                setInfoPower("Power: " .. fmtPower(powerLevel and powerLevel.Value or 1000) .. "%")
             end)
         end
     end)
 
-    -- Keep third person alive on camera changes
-    bind(Ws:GetPropertyChangedSignal("CurrentCamera"), function()
-        if st.fovOn then
-            bindFovCam(Ws.CurrentCamera or workspace.CurrentCamera)
-        end
-        if st.unlockThirdPerson then
-            task.wait(0.1)
-            applyThirdPerson(true)
-        end
-    end)
-
-    -- Final loaded notification (shows after everything is initialized)
+    -- Final loaded notification
     task.delay(1.5, function()
-        notify("✅ Loaded", "ESP (Player, Location, Flare Gun) | Refresh: " .. tostring(st.espScan) .. "s", 3)
-        print("✅ The Rake Enhanced – Fixed ESP loaded.")
+        notify("✅ Loaded", SCRIPT_NAME .. " " .. SCRIPT_VERSION, 3)
+        print("✅ " .. SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " loaded.")
     end)
 end
