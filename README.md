@@ -12,5 +12,11 @@ loadstring(game:HttpGet(('https://raw.githubusercontent.com/depthso/Grow-a-Garde
 loadstring(game:HttpGet(('https://raw.githubusercontent.com/Jhon-mark23/Grow-a-Garden/refs/heads/main/baboon2')))()
 ```
 
+
+## The Rake Remastered 
+```lua
+loadstring(game:HttpGet(('https://raw.githubusercontent.com/Jhon-mark23/Grow-a-Garden/refs/heads/main/rakev1')))()
+```
+
 ---
 ![image](https://github.com/user-attachments/assets/1ea2aee2-3170-49d6-b0c5-3f83b159ebcf)
