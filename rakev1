@@ -29,7 +29,7 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v2.0.5"
+    local SCRIPT_VERSION = "v2.1.0"
     local SCRIPT_NAME = "The Rake Enhanced - Full Features"
 
     -- Load Rayfield Gen2
@@ -63,7 +63,7 @@ if game.GameId == 847722000 then
     -- Create Window
     local window = Rayfield:CreateWindow({
         name = "Project The Rake",
-        subtitle = "ESP + Exploits + Auto Heal + Power",
+        subtitle = "ESP + Exploits + Auto Heal",
     })
 
     -- Create Tabs
@@ -210,11 +210,9 @@ if game.GameId == 847722000 then
         rakeAuraRange = cfgGet("rakeAuraRange", 12),
         rakeAuraDelay = cfgGet("rakeAuraDelay", 0.12),
         rakeAuraAutoEquip = cfgGet("rakeAuraAutoEquip", true),
-        autoPowerRestore = cfgGet("autoPowerRestore", false),
-        powerRestoreUseToolbox = cfgGet("powerRestoreUseToolbox", true),
         spawnNotifications = cfgGet("spawnNotifications", true),
         
-        -- ESP (enhanced from second script)
+        -- ESP
         supplyDropESP = cfgGet("supplyDropESP", false),
         rakeTrapESP = cfgGet("rakeTrapESP", false),
         scrapESP = cfgGet("scrapESP", false),
@@ -307,28 +305,25 @@ if game.GameId == 847722000 then
     }
 
     -- ========== DETECTION ==========
-    -- FIXED: getScrapRoot defined BEFORE isCollectibleScrap
     local function getScrapRoot()
         local filter = Workspace:FindFirstChild("Filter")
         return filter and filter:FindFirstChild("ScrapSpawns") or nil
     end
 
-    -- ========== FIXED: Only detect collectible scraps ==========
+    -- ========== Only detect collectible scraps ==========
     local function isCollectibleScrap(obj)
         if not obj then return false end
         if not obj:IsA("BasePart") then return false end
         if obj.Name ~= "Scrap" then return false end
         
-        -- Check if it's inside a Supply Box (decorative, not collectible)
         local parent = obj.Parent
         while parent do
             if parent.Name == "Box" and parent:IsA("Model") then
-                return false -- It's inside a box, skip it
+                return false
             end
             parent = parent.Parent
         end
         
-        -- Check if it's in the ScrapSpawns folder
         local root = getScrapRoot()
         if root and obj:IsDescendantOf(root) then
             return true
@@ -337,34 +332,28 @@ if game.GameId == 847722000 then
         return false
     end
 
-    -- ========== FIXED: Only detect REAL flaregun ==========
+    -- ========== Only detect REAL flaregun (Skip Paper Pickup) ==========
     local function isRealFlareGun(obj)
         if not obj then return false end
         if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
         
-        -- EXACT match only - no partial matches
         local name = obj.Name
         if name == "FlareGunPickUp" then
-            -- Additional check: make sure it's not a paper pickup
             if obj:IsA("BasePart") then
-                -- Real flaregun has specific size/shape
                 if obj.Size.Magnitude > 1 then
                     return true
                 end
             elseif obj:IsA("Model") then
-                -- Check if it has a real flaregun model
                 local parts = obj:GetChildren()
-                if #parts > 2 then -- Real flaregun model has multiple parts
+                if #parts > 2 then
                     return true
                 end
             end
-            return true
+            return false
         end
-        
         return false
     end
 
-    -- Enhanced detection from second script
     local function isSupplyDrop(obj)
         return obj and obj.Name == "Box" and obj:IsA("Model")
     end
@@ -511,7 +500,6 @@ if game.GameId == 847722000 then
         local pos = self:getObjectPosition(entry.Object)
         local dist = self:getDistanceFromPlayer(pos)
         
-        -- Show distance in METERS (not km)
         local text = entry.DisplayName
         if dist and st.espShowDistance then
             if dist >= 1000 then
@@ -664,7 +652,6 @@ if game.GameId == 847722000 then
     local OBJECT_SCAN_INTERVAL = 1.0
 
     local function updateObjectTargets()
-        -- Original ESP targets
         if not ESPConfig.Players.Enabled and 
            not ESPConfig.Rake.Enabled and 
            not ESPConfig.FlareGun.Enabled and 
@@ -674,7 +661,6 @@ if game.GameId == 847722000 then
             return
         end
         
-        -- Rake
         if ESPConfig.Rake.Enabled then
             local rake = Workspace:FindFirstChild("Rake", true)
             if rake and not ESP.Highlights[rake] then
@@ -682,7 +668,6 @@ if game.GameId == 847722000 then
             end
         end
         
-        -- Flare Gun (FIXED: Only real flaregun)
         if ESPConfig.FlareGun.Enabled then
             for _, obj in ipairs(Workspace:GetDescendants()) do
                 if isRealFlareGun(obj) and not ESP.Highlights[obj] then
@@ -691,7 +676,6 @@ if game.GameId == 847722000 then
             end
         end
         
-        -- Scrap (FIXED: Only collectible scraps)
         if ESPConfig.Scrap.Enabled then
             for _, obj in ipairs(Workspace:GetDescendants()) do
                 if isCollectibleScrap(obj) then
@@ -702,7 +686,6 @@ if game.GameId == 847722000 then
             end
         end
 
-        -- ENHANCED: Supply Drops
         if ESPConfig.SupplyDrop.Enabled then
             local root = getDropRoot()
             if root then
@@ -716,7 +699,6 @@ if game.GameId == 847722000 then
             ESP:CleanupEnhanced("drops")
         end
 
-        -- ENHANCED: Rake Traps
         if ESPConfig.RakeTrap.Enabled then
             local root = getTrapRoot()
             if root then
@@ -730,7 +712,6 @@ if game.GameId == 847722000 then
             ESP:CleanupEnhanced("traps")
         end
         
-        -- Clean up invalid objects
         local toRemove = {}
         for object, highlight in pairs(ESP.Highlights) do
             if not object:IsDescendantOf(Workspace) then
@@ -1326,81 +1307,6 @@ if game.GameId == 847722000 then
         return false
     end
 
-    -- ========== POWER RESTORATION ==========
-    local powerRepairBusy = false
-    function repairPowerStation()
-        if powerRepairBusy == true then return false, "busy" end
-        local map = Workspace:FindFirstChild("Map")
-        local powerStation = map and map:FindFirstChild("PowerStation")
-        local station = powerStation and powerStation:FindFirstChild("StationFolder")
-        local guiPart = station and station:FindFirstChild("StationGUIPart")
-        local prompt = guiPart and guiPart:FindFirstChildWhichIsA("ProximityPrompt")
-        local ev = station and station:FindFirstChild("RemoteEvent")
-        local progress = station and station:FindFirstChild("Progress")
-        local stationPower = ReplicatedStorage:FindFirstChild("StationPower")
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-        if not (station and guiPart and prompt and ev and root and hum) then
-            return false, "missing"
-        end
-        if stationPower and stationPower.Value == true then
-            return true, "powered"
-        end
-        powerRepairBusy = true
-        local oldCf = root.CFrame
-        local oldAnchored = root.Anchored
-        local ok, result = pcall(function()
-            local useToolbox = false
-            if st.powerRestoreUseToolbox == true then
-                local toolbox = findTool("toolbox")
-                if toolbox then
-                    pcall(function() hum:EquipTool(toolbox) end)
-                    task.wait(0.15)
-                    useToolbox = toolbox.Parent == LocalPlayer.Character
-                end
-            end
-            root.CFrame = guiPart.CFrame * CFrame.new(0,0,3)
-            root.AssemblyLinearVelocity = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
-            task.wait(0.2)
-            root.Anchored = true
-            ev:FireServer("StationStart", useToolbox)
-            local activate = tonumber(prompt:GetAttribute("ActivateTime")) or 30
-            local deadline = time() + math.max(activate + 8, 35)
-            local success = false
-            while root.Parent and time() < deadline do
-                if stationPower and stationPower.Value == true then
-                    success = true
-                    break
-                end
-                if progress and tonumber(progress.Value) and progress.Value >= 100 then
-                    success = true
-                    break
-                end
-                task.wait(0.25)
-            end
-            if not success then
-                pcall(function() ev:FireServer("StationCancel") end)
-            end
-            return success
-        end)
-        pcall(function()
-            root.Anchored = oldAnchored
-            root.CFrame = oldCf
-            root.AssemblyLinearVelocity = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
-        end)
-        powerRepairBusy = false
-        return ok and result == true, ok and (result == true and "done" or "timeout") or tostring(result)
-    end
-    function autoRestorePower()
-        if st.autoPowerRestore ~= true or powerRepairBusy == true then return false end
-        local stationPower = ReplicatedStorage:FindFirstChild("StationPower")
-        if not stationPower or stationPower.Value == true then return false end
-        task.spawn(function() repairPowerStation() end)
-        return true
-    end
-
     -- ========== RAKE KILLAURA ==========
     local auraT = 0
     local aura = { rk = nil, rr = nil, rh = nil, stick = nil, ev = nil, hp = nil }
@@ -1525,9 +1431,8 @@ if game.GameId == 847722000 then
         pcall(function() ev:FireServer("H", hit) end)
     end
 
-    -- ========== BRING ITEMS (Spawns on HEAD) ==========
+    -- ========== BRING ITEMS ==========
     function bringScraps()
-        -- Get the Head part instead of HumanoidRootPart
         local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
         if not head then
             notify("Error", "Character or Head not found!", 2)
@@ -1551,7 +1456,6 @@ if game.GameId == 847722000 then
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if isCollectibleScrap(obj) and not isInCharacter(obj) then
                 pcall(function()
-                    -- Spawn directly ON the Head (CFrame at Head position)
                     obj.CFrame = head.CFrame * CFrame.new(0, 0.5 + (count * 0.5), 0)
                     obj.AssemblyLinearVelocity = Vector3.zero
                     obj.AssemblyAngularVelocity = Vector3.zero
@@ -1563,8 +1467,8 @@ if game.GameId == 847722000 then
         return count
     end
     
+    -- ========== FIXED BRING FLAREGUN (No underworld teleport) ==========
     function bringFlaregun()
-        -- Get the Head part instead of HumanoidRootPart
         local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
         if not head then
             notify("Error", "Character or Head not found!", 2)
@@ -1582,13 +1486,27 @@ if game.GameId == 847722000 then
         if flaregun then
             pcall(function()
                 if flaregun:IsA("BasePart") then
-                    -- Spawn directly ON the Head (CFrame at Head position)
-                    flaregun.CFrame = head.CFrame * CFrame.new(0, 0.5, 0)
+                    -- Get the current position and move it to head
+                    local cf = flaregun.CFrame
+                    -- Unanchor first to allow movement
+                    flaregun.Anchored = false
+                    -- Move to head position with offset
+                    flaregun.CFrame = head.CFrame * CFrame.new(0, 1.5, 0)
+                    -- Reset velocity to prevent flying away
                     flaregun.AssemblyLinearVelocity = Vector3.zero
                     flaregun.AssemblyAngularVelocity = Vector3.zero
                 elseif flaregun:IsA("Model") then
-                    -- Spawn directly ON the Head
-                    flaregun:PivotTo(head.CFrame * CFrame.new(0, 0.5, 0))
+                    -- For model type, find the primary part
+                    local primary = flaregun.PrimaryPart or flaregun:FindFirstChildWhichIsA("BasePart", true)
+                    if primary then
+                        primary.Anchored = false
+                        primary.CFrame = head.CFrame * CFrame.new(0, 1.5, 0)
+                        primary.AssemblyLinearVelocity = Vector3.zero
+                        primary.AssemblyAngularVelocity = Vector3.zero
+                    else
+                        -- Fallback: move entire model
+                        flaregun:PivotTo(head.CFrame * CFrame.new(0, 1.5, 0))
+                    end
                 end
             end)
             return 1
@@ -1597,7 +1515,7 @@ if game.GameId == 847722000 then
         return 0
     end
 
-    -- ========== AUTO COLLECT (Instant Supply Drop) ==========
+    -- ========== AUTO COLLECT ==========
     function autoSupplyCollect()
         if not st.autoSupplyCollect then return 0 end
         local ev = ReplicatedStorage:FindFirstChild("SupplyClientEvent")
@@ -1608,7 +1526,6 @@ if game.GameId == 847722000 then
         local n = 0
         for _, box in ipairs(crates:GetChildren()) do
             if box.Name == "Box" then
-                -- Fast prompt
                 local gui = box:FindFirstChild("GUIPart")
                 local prompt = gui and gui:FindFirstChildWhichIsA("ProximityPrompt")
                 if prompt then
@@ -1794,7 +1711,6 @@ if game.GameId == 847722000 then
         infoRoot = root
         infoLbl = lbl
         
-        -- Drag functionality
         if not infoDrag or infoDrag.root ~= root then
             infoDrag = {on = false, root = root}
             root.InputBegan:Connect(function(input)
@@ -1963,7 +1879,7 @@ if game.GameId == 847722000 then
     })
 
     espTab:CreateToggle({
-        name = "ESP Flare Gun (Yellow)",
+        name = "ESP Flare Gun (Yellow) - REAL only",
         currentValue = ESPConfig.FlareGun.Enabled,
         callback = function(Value)
             ESPConfig.FlareGun.Enabled = Value
@@ -2335,7 +2251,7 @@ if game.GameId == 847722000 then
     })
 
     -- Exploits Tab
-    exploitTab:CreateSection({ name = "Bring Items (Spawns on Head)" })
+    exploitTab:CreateSection({ name = "Bring Items" })
     
     exploitTab:CreateButton({
         name = "Bring Scraps",
@@ -2346,17 +2262,17 @@ if game.GameId == 847722000 then
     })
 
     exploitTab:CreateButton({
-        name = "Bring Flaregun",
+        name = "Bring Flaregun (Fixed)",
         callback = function()
             local count = bringFlaregun()
-            notify("Flaregun", count > 0 and "Brought flaregun!" or "No flaregun found!", 3)
+            notify("Flaregun", count > 0 and "Brought flaregun!" or "No REAL flaregun found!", 3)
         end
     })
 
-    exploitTab:CreateSection({ name = "Instant Supply Drop" })
+    exploitTab:CreateSection({ name = "Auto Collect" })
     
     exploitTab:CreateToggle({
-        name = "Auto Open Supply Drops",
+        name = "Auto Supply Collect",
         currentValue = st.autoSupplyCollect,
         callback = function(Value)
             st.autoSupplyCollect = Value
@@ -2364,98 +2280,12 @@ if game.GameId == 847722000 then
         end
     })
 
-    exploitTab:CreateButton({
-        name = "Instant Open All Supply Drops Now",
-        callback = function()
-            task.spawn(function()
-                local count = 0
-                local debris = Workspace:FindFirstChild("Debris")
-                local crates = debris and debris:FindFirstChild("SupplyCrates")
-                if not crates then
-                    notify("Supply Drops", "No supply crates found!", 3)
-                    return
-                end
-                
-                local ev = ReplicatedStorage:FindFirstChild("SupplyClientEvent")
-                if not ev then
-                    notify("Supply Drops", "Remote event not found!", 3)
-                    return
-                end
-                
-                for _, box in ipairs(crates:GetChildren()) do
-                    if box.Name == "Box" then
-                        -- Fast prompt bypass
-                        local gui = box:FindFirstChild("GUIPart")
-                        local prompt = gui and gui:FindFirstChildWhichIsA("ProximityPrompt")
-                        if prompt then
-                            pcall(function()
-                                prompt.HoldDuration = 0
-                                prompt.RequiresLineOfSight = false
-                                prompt.MaxActivationDistance = 25
-                            end)
-                        end
-                        
-                        -- Set unlock value
-                        local unlock = box:FindFirstChild("UnlockValue")
-                        if unlock then
-                            pcall(function() unlock.Value = 100 end)
-                        end
-                        
-                        -- Collect all items
-                        local items = box:FindFirstChild("Items_Folder")
-                        if items then
-                            for _, item in ipairs(items:GetChildren()) do
-                                local taken = item:FindFirstChild("Taken")
-                                if taken and taken.Value ~= true then
-                                    pcall(function() ev:FireServer("Collect", item.Name) end)
-                                    count = count + 1
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                notify("Supply Drops", "Opened " .. count .. " items from crates!", 3)
-            end)
-        end
-    })
-
-    exploitTab:CreateSection({ name = "Power Restoration" })
-    
-    exploitTab:CreateButton({
-        name = "Restore Power Now",
-        callback = function()
-            task.spawn(function()
-                local ok, why = repairPowerStation()
-                if ok and why == "powered" then
-                    notify("Power Station", "Power is already online.", 3)
-                elseif ok then
-                    notify("Power Station", "Power restoration completed.", 3)
-                elseif why == "busy" then
-                    notify("Power Station", "Power restoration is already running.", 3)
-                else
-                    notify("Power Station", "Power restoration failed or timed out.", 3)
-                end
-            end)
-        end
-    })
-
     exploitTab:CreateToggle({
-        name = "Auto Restore Power",
-        currentValue = st.autoPowerRestore,
-        callback = function(value)
-            st.autoPowerRestore = value
-            cfgSet("autoPowerRestore", value)
-            if value then autoRestorePower() end
-        end
-    })
-
-    exploitTab:CreateToggle({
-        name = "Use Toolbox For Power",
-        currentValue = st.powerRestoreUseToolbox,
-        callback = function(value)
-            st.powerRestoreUseToolbox = value
-            cfgSet("powerRestoreUseToolbox", value)
+        name = "Auto Scrap Collect",
+        currentValue = st.autoScrapCollect,
+        callback = function(Value)
+            st.autoScrapCollect = Value
+            cfgSet("autoScrapCollect", Value)
         end
     })
 
@@ -2628,7 +2458,6 @@ if game.GameId == 847722000 then
         -- Auto collect
         if st.autoSupplyCollect then pcall(autoSupplyCollect) end
         if st.autoScrapCollect then pcall(autoScrapCollect) end
-        if st.autoPowerRestore then pcall(autoRestorePower) end
 
         -- Info Bubble updates
         if st.infoBubble then
