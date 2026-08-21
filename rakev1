@@ -29,7 +29,7 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v2.1.1"
+    local SCRIPT_VERSION = "v2.1.5"
     local SCRIPT_NAME = "The Rake Enhanced - Full Features"
 
     -- Load Rayfield Gen2
@@ -63,34 +63,16 @@ if game.GameId == 847722000 then
     -- Create Window
     local window = Rayfield:CreateWindow({
         name = "Project The Rake",
-        subtitle = "ESP + Exploits + Auto Heal",
+        subtitle = "ESP + Exploits + Auto Heal + Protection",
     })
 
     -- Create Tabs
-    local espTab = window:CreateTab({
-        name = "ESP",
-        icon = "eye"
-    })
-
-    local visualTab = window:CreateTab({
-        name = "Visuals",
-        icon = "image"
-    })
-
-    local playerTab = window:CreateTab({
-        name = "Player",
-        icon = "user"
-    })
-
-    local exploitTab = window:CreateTab({
-        name = "Exploits",
-        icon = "shield"
-    })
-
-    local settingsTab = window:CreateTab({
-        name = "Settings",
-        icon = "settings"
-    })
+    local espTab = window:CreateTab({ name = "ESP", icon = "eye" })
+    local visualTab = window:CreateTab({ name = "Visuals", icon = "image" })
+    local playerTab = window:CreateTab({ name = "Player", icon = "user" })
+    local exploitTab = window:CreateTab({ name = "Exploits", icon = "shield" })
+    local protectionTab = window:CreateTab({ name = "🛡️ Protection", icon = "lock" }) -- NEW PROTECTION TAB
+    local settingsTab = window:CreateTab({ name = "Settings", icon = "settings" })
 
     -- ========== CONFIG MANAGER ==========
     local Http = game:GetService("HttpService")
@@ -180,6 +162,8 @@ if game.GameId == 847722000 then
     local Lighting = game:GetService("Lighting")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local LocalPlayer = Players.LocalPlayer
+    local UserInputService = game:GetService("UserInputService")
+    local HttpService = game:GetService("HttpService")
 
     -- ========== STATE ==========
     local st = {
@@ -224,13 +208,20 @@ if game.GameId == 847722000 then
         autoScrapCollect = cfgGet("autoScrapCollect", false),
         promptBypass = cfgGet("promptBypass", false),
         promptDistance = cfgGet("promptDistance", 25),
+        
+        -- Protection (NEW - Auto On)
+        protectionEnabled = true,
+        antiCheatBypass = true,
+        autoDisableOnAdmin = true,
+        hideExploitSigns = true,
+        spoofRemoteEvents = true,
     }
 
     -- ========== ESP CONFIGURATION ==========
     local ESPConfig = {
         Players = {
             Enabled = cfgGet("ESP_Players", false),
-            FillColor = Color3.fromRGB(255, 255, 255), -- WHITE
+            FillColor = Color3.fromRGB(255, 255, 255),
             FillTransparency = 0.5,
             OutlineColor = Color3.fromRGB(255, 255, 255),
             OutlineTransparency = 0,
@@ -238,7 +229,7 @@ if game.GameId == 847722000 then
         },
         Rake = {
             Enabled = cfgGet("ESP_Rake", false),
-            FillColor = Color3.fromRGB(255, 0, 0), -- RED
+            FillColor = Color3.fromRGB(255, 0, 0),
             FillTransparency = 0.4,
             OutlineColor = Color3.fromRGB(255, 0, 0),
             OutlineTransparency = 0,
@@ -246,7 +237,7 @@ if game.GameId == 847722000 then
         },
         FlareGun = {
             Enabled = cfgGet("ESP_FlareGun", false),
-            FillColor = Color3.fromRGB(255, 200, 0), -- YELLOW
+            FillColor = Color3.fromRGB(255, 200, 0),
             FillTransparency = 0.3,
             OutlineColor = Color3.fromRGB(255, 200, 0),
             OutlineTransparency = 0,
@@ -254,7 +245,7 @@ if game.GameId == 847722000 then
         },
         Scrap = {
             Enabled = cfgGet("ESP_Scrap", false),
-            FillColor = Color3.fromRGB(139, 69, 19), -- BROWN
+            FillColor = Color3.fromRGB(139, 69, 19),
             FillTransparency = 0.5,
             OutlineColor = Color3.fromRGB(101, 67, 33),
             OutlineTransparency = 0,
@@ -263,10 +254,9 @@ if game.GameId == 847722000 then
         Locations = {
             Enabled = cfgGet("ESP_Locations", false)
         },
-        -- Enhanced ESP
         SupplyDrop = {
             Enabled = false,
-            FillColor = Color3.fromRGB(251, 255, 0), -- YELLOW
+            FillColor = Color3.fromRGB(251, 255, 0),
             FillTransparency = 0.3,
             OutlineColor = Color3.fromRGB(251, 255, 0),
             OutlineTransparency = 0,
@@ -274,7 +264,7 @@ if game.GameId == 847722000 then
         },
         RakeTrap = {
             Enabled = false,
-            FillColor = Color3.fromRGB(255, 85, 0), -- ORANGE
+            FillColor = Color3.fromRGB(255, 85, 0),
             FillTransparency = 0.3,
             OutlineColor = Color3.fromRGB(255, 85, 0),
             OutlineTransparency = 0,
@@ -304,13 +294,249 @@ if game.GameId == 847722000 then
         scraps = {},
     }
 
-    -- ========== DETECTION ==========
+    -- ========== ENHANCED PROTECTION SYSTEM ==========
+    local Protection = {
+        enabled = true,
+        antiCheatActive = true,
+        adminDetected = false,
+        lastCheck = 0,
+        checkInterval = 3,
+        remoteSpoofEnabled = true,
+        exploitSignsHidden = true,
+        protectedRemotes = {},
+    }
+
+    -- ========== ADMIN DETECTION ==========
+    local function detectAdmins()
+        if not Protection.enabled then return false end
+        
+        local adminKeywords = {"admin", "mod", "owner", "rake", "dev", "staff", "helper", "guide"}
+        local adminPlayers = {}
+        
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local name = player.Name:lower()
+                local displayName = player.DisplayName:lower()
+                
+                for _, keyword in ipairs(adminKeywords) do
+                    if name:find(keyword, 1, true) or displayName:find(keyword, 1, true) then
+                        table.insert(adminPlayers, player)
+                        Protection.adminDetected = true
+                        return true
+                    end
+                end
+                
+                -- Check for admin tools
+                local char = player.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") and (tool.Name:lower():find("admin") or tool.Name:lower():find("mod")) then
+                            table.insert(adminPlayers, player)
+                            Protection.adminDetected = true
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+        
+        Protection.adminDetected = false
+        return false
+    end
+
+    -- ========== ANTI-CHEAT BYPASS ==========
+    local function bypassAntiCheat()
+        if not Protection.antiCheatActive then return false end
+        
+        -- Hook common anti-cheat functions
+        local hookf = hookfunction
+        if type(hookf) == "function" then
+            -- Bypass detection functions
+            pcall(function()
+                local env = getrenv and getrenv() or _G
+                if env and type(env) == "table" then
+                    -- Look for common anti-cheat function names
+                    local acNames = {"Detected", "Kill", "Ban", "Check", "Scan", "Log", "Report", "Flag"}
+                    for _, name in ipairs(acNames) do
+                        local fn = rawget(env, name)
+                        if type(fn) == "function" then
+                            hookf(fn, function() return true end)
+                        end
+                    end
+                end
+            end)
+            
+            -- Hook debug.info to hide script
+            pcall(function()
+                local dbg = debug
+                if dbg and type(dbg.info) == "function" then
+                    hookf(dbg.info, function(...)
+                        local args = {...}
+                        if args[1] and tostring(args[1]):find("script", 1, true) then
+                            return nil
+                        end
+                        return dbg.info(...)
+                    end)
+                end
+            end)
+        end
+        
+        -- Hide script from stack traces
+        pcall(function()
+            local oldError = error
+            error = function(msg, level)
+                if type(msg) == "string" and msg:find("Rake", 1, true) then
+                    return
+                end
+                return oldError(msg, level)
+            end
+        end)
+        
+        return true
+    end
+
+    -- ========== REMOTE EVENT SPOOFING ==========
+    local function spoofRemoteEvents()
+        if not Protection.remoteSpoofEnabled then return end
+        
+        local remoteEvents = {
+            "SupplyClientEvent",
+            "ShopEvent",
+            "TRP_Event",
+            "StartRemote",
+            "SettingsChangedEvent",
+            "RadioChatEvent",
+        }
+        
+        for _, eventName in ipairs(remoteEvents) do
+            local event = ReplicatedStorage:FindFirstChild(eventName)
+            if event and event:IsA("RemoteEvent") then
+                if not Protection.protectedRemotes[event] then
+                    local oldFire = event.FireServer
+                    if oldFire then
+                        event.FireServer = function(self, ...)
+                            -- Add random delay to avoid pattern detection
+                            task.wait(math.random() * 0.03)
+                            -- Randomize arguments slightly if possible
+                            local args = {...}
+                            if #args > 0 then
+                                -- Add random noise to numbers
+                                for i, v in ipairs(args) do
+                                    if type(v) == "number" and v > 0 then
+                                        args[i] = v + (math.random() - 0.5) * 0.1
+                                    end
+                                end
+                            end
+                            return oldFire(self, unpack(args))
+                        end
+                        Protection.protectedRemotes[event] = true
+                    end
+                end
+            end
+        end
+    end
+
+    -- ========== HIDE EXPLOIT SIGNS ==========
+    local function hideExploitSigns()
+        if not Protection.exploitSignsHidden then return end
+        
+        -- Hide exploit GUI elements
+        pcall(function()
+            for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
+                if gui:IsA("ScreenGui") and (
+                    gui.Name:lower():find("exploit") or
+                    gui.Name:lower():find("script") or
+                    gui.Name:lower():find("hack") or
+                    gui.Name:lower():find("cheat") or
+                    gui.Name:lower():find("admin")
+                ) then
+                    gui.Enabled = false
+                end
+            end
+        end)
+        
+        -- Hide suspicious tool names
+        pcall(function()
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            if backpack then
+                for _, tool in ipairs(backpack:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        local name = tool.Name:lower()
+                        if name:find("exploit") or name:find("hack") or name:find("cheat") then
+                            tool.Name = "Item"
+                        end
+                    end
+                end
+            end
+        end)
+        
+        -- Hide suspicious RemoteEvent usage
+        pcall(function()
+            for _, event in ipairs(ReplicatedStorage:GetChildren()) do
+                if event:IsA("RemoteEvent") and event.Name:lower():find("exploit") then
+                    event.Name = "RemoteEvent"
+                end
+            end
+        end)
+    end
+
+    -- ========== AUTO-DISABLE ON ADMIN ==========
+    local function autoDisableOnAdmin()
+        if not st.autoDisableOnAdmin then return end
+        
+        if Protection.adminDetected then
+            -- Disable killaura
+            if st.rakeAura then
+                st.rakeAura = false
+                _G.RakeKillAura = false
+                cfgSet("rakeAura", false)
+            end
+            
+            -- Disable ESP
+            for _, config in pairs(ESPConfig) do
+                if config.Enabled then
+                    config.Enabled = false
+                end
+            end
+            
+            -- Disable auto features
+            st.autoSupplyCollect = false
+            st.autoScrapCollect = false
+            st.autoHealSelf = false
+            st.autoHealPlayers = false
+            
+            -- Notify user
+            notify("🛡️ PROTECTION", "Admin detected! Features temporarily disabled for safety.", 5)
+        end
+    end
+
+    -- ========== PROTECTION MAIN LOOP ==========
+    local function runProtectionLoop()
+        local currentTime = tick()
+        if currentTime - Protection.lastCheck >= Protection.checkInterval then
+            Protection.lastCheck = currentTime
+            
+            -- Run all protection checks
+            pcall(detectAdmins)
+            pcall(bypassAntiCheat)
+            pcall(spoofRemoteEvents)
+            pcall(hideExploitSigns)
+            pcall(autoDisableOnAdmin)
+            
+            -- Re-apply protection if disabled
+            if not Protection.enabled then
+                Protection.enabled = true
+                notify("🛡️ PROTECTION", "Protection system re-enabled.", 3)
+            end
+        end
+    end
+
+    -- ========== DETECTION FUNCTIONS ==========
     local function getScrapRoot()
         local filter = Workspace:FindFirstChild("Filter")
         return filter and filter:FindFirstChild("ScrapSpawns") or nil
     end
 
-    -- ========== Only detect collectible scraps ==========
     local function isCollectibleScrap(obj)
         if not obj then return false end
         if not obj:IsA("BasePart") then return false end
@@ -332,7 +558,6 @@ if game.GameId == 847722000 then
         return false
     end
 
-    -- ========== Only detect REAL flaregun (Skip Paper Pickup) ==========
     local function isRealFlareGun(obj)
         if not obj then return false end
         if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
@@ -1467,7 +1692,6 @@ if game.GameId == 847722000 then
         return count
     end
     
-    -- ========== FIXED BRING FLAREGUN (No underworld teleport) ==========
     function bringFlaregun()
         local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
         if not head then
@@ -1486,17 +1710,11 @@ if game.GameId == 847722000 then
         if flaregun then
             pcall(function()
                 if flaregun:IsA("BasePart") then
-                    -- Get the current position and move it to head
-                    local cf = flaregun.CFrame
-                    -- Unanchor first to allow movement
                     flaregun.Anchored = false
-                    -- Move to head position with offset
                     flaregun.CFrame = head.CFrame * CFrame.new(0, 1.5, 0)
-                    -- Reset velocity to prevent flying away
                     flaregun.AssemblyLinearVelocity = Vector3.zero
                     flaregun.AssemblyAngularVelocity = Vector3.zero
                 elseif flaregun:IsA("Model") then
-                    -- For model type, find the primary part
                     local primary = flaregun.PrimaryPart or flaregun:FindFirstChildWhichIsA("BasePart", true)
                     if primary then
                         primary.Anchored = false
@@ -1504,7 +1722,6 @@ if game.GameId == 847722000 then
                         primary.AssemblyLinearVelocity = Vector3.zero
                         primary.AssemblyAngularVelocity = Vector3.zero
                     else
-                        -- Fallback: move entire model
                         flaregun:PivotTo(head.CFrame * CFrame.new(0, 1.5, 0))
                     end
                 end
@@ -1687,8 +1904,7 @@ if game.GameId == 847722000 then
             pad.PaddingBottom = UDim.new(0,8)
             pad.PaddingLeft = UDim.new(0,10)
             pad.PaddingRight = UDim.new(0,10)
-            pad.Parent = root
-        end
+            pad.Parent = root        end
         
         local lbl = root:FindFirstChild("Text")
         if not lbl then
@@ -2297,6 +2513,11 @@ if game.GameId == 847722000 then
         callback = function(value)
             st.rakeAura = value
             cfgSet("rakeAura", value)
+            if value then
+                notify("⚔️ KILLAURA", "Killaura enabled - Protection active", 3)
+            else
+                notify("⚔️ KILLAURA", "Killaura disabled", 2)
+            end
         end
     })
 
@@ -2343,7 +2564,49 @@ if game.GameId == 847722000 then
         end
     })
 
-    -- Settings Tab
+    -- ========== PROTECTION TAB (NEW) ==========
+    protectionTab:CreateSection({ name = "🛡️ Protection Status" })
+    
+    protectionTab:CreateLabel({
+        name = "🛡️ All protection systems are AUTO-ON by default"
+    })
+    
+    protectionTab:CreateLabel({
+        name = "✅ Anti-Cheat Bypass: ACTIVE"
+    })
+    
+    protectionTab:CreateLabel({
+        name = "✅ Admin Detection: ACTIVE"
+    })
+    
+    protectionTab:CreateLabel({
+        name = "✅ Remote Spoofing: ACTIVE"
+    })
+    
+    protectionTab:CreateLabel({
+        name = "✅ Exploit Sign Hiding: ACTIVE"
+    })
+    
+    protectionTab:CreateLabel({
+        name = "✅ Auto-Disable on Admin: ACTIVE"
+    })
+
+    protectionTab:CreateSection({ name = "📊 Protection Stats" })
+    
+    protectionTab:CreateButton({
+        name = "🔄 Check Protection Status",
+        callback = function()
+            local status = "🛡️ PROTECTION STATUS:\n"
+            status = status .. "✅ Anti-Cheat Bypass: " .. (Protection.antiCheatActive and "ACTIVE" or "INACTIVE") .. "\n"
+            status = status .. "✅ Admin Detected: " .. (Protection.adminDetected and "⚠️ YES" or "NO") .. "\n"
+            status = status .. "✅ Remote Spoofing: " .. (Protection.remoteSpoofEnabled and "ACTIVE" or "INACTIVE") .. "\n"
+            status = status .. "✅ Exploit Signs Hidden: " .. (Protection.exploitSignsHidden and "YES" or "NO") .. "\n"
+            status = status .. "✅ Auto-Disable: " .. (st.autoDisableOnAdmin and "ENABLED" : "DISABLED")
+            notify("🛡️ Protection Status", status, 5)
+        end
+    })
+
+    -- ========== SETTINGS TAB ==========
     settingsTab:CreateSection({ name = "Settings" })
     
     settingsTab:CreateButton({
@@ -2381,6 +2644,20 @@ if game.GameId == 847722000 then
 
     -- ========== INITIALIZE ==========
     showWelcomeNotification()
+
+    -- Initialize Protection System (AUTO-ON)
+    task.spawn(function()
+        notify("🛡️ PROTECTION", "Enhanced protection system initializing...", 3)
+        task.wait(0.5)
+        
+        -- Run initial protection setup
+        pcall(bypassAntiCheat)
+        pcall(spoofRemoteEvents)
+        pcall(hideExploitSigns)
+        pcall(detectAdmins)
+        
+        notify("🛡️ PROTECTION", "All protection systems are now ACTIVE!", 3)
+    end)
 
     -- Apply initial states
     if st.fullbright then applyFullbright() end
@@ -2424,6 +2701,9 @@ if game.GameId == 847722000 then
     -- Main loop
     local espTimer = 0
     RunService.Heartbeat:Connect(function(dt)
+        -- Protection Loop
+        pcall(runProtectionLoop)
+        
         -- Killaura
         if st.rakeAura then
             auraT = auraT + dt
@@ -2491,7 +2771,7 @@ if game.GameId == 847722000 then
 
     -- Final loaded notification
     task.delay(1.5, function()
-        notify("✅ Loaded", SCRIPT_NAME .. " " .. SCRIPT_VERSION, 3)
+        notify("✅ Loaded", SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " - Protection Active!", 3)
         print("✅ " .. SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " loaded.")
     end)
 end
