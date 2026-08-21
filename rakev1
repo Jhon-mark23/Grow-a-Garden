@@ -71,7 +71,7 @@ if game.GameId == 847722000 then
     local visualTab = window:CreateTab({ name = "Visuals", icon = "image" })
     local playerTab = window:CreateTab({ name = "Player", icon = "user" })
     local exploitTab = window:CreateTab({ name = "Exploits", icon = "shield" })
-    local protectionTab = window:CreateTab({ name = "🛡️ Protection", icon = "lock" }) -- NEW PROTECTION TAB
+    local protectionTab = window:CreateTab({ name = "🛡️ Protection", icon = "lock" })
     local settingsTab = window:CreateTab({ name = "Settings", icon = "settings" })
 
     -- ========== CONFIG MANAGER ==========
@@ -209,7 +209,7 @@ if game.GameId == 847722000 then
         promptBypass = cfgGet("promptBypass", false),
         promptDistance = cfgGet("promptDistance", 25),
         
-        -- Protection (NEW - Auto On)
+        -- Protection
         protectionEnabled = true,
         antiCheatBypass = true,
         autoDisableOnAdmin = true,
@@ -311,7 +311,6 @@ if game.GameId == 847722000 then
         if not Protection.enabled then return false end
         
         local adminKeywords = {"admin", "mod", "owner", "rake", "dev", "staff", "helper", "guide"}
-        local adminPlayers = {}
         
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
@@ -320,7 +319,6 @@ if game.GameId == 847722000 then
                 
                 for _, keyword in ipairs(adminKeywords) do
                     if name:find(keyword, 1, true) or displayName:find(keyword, 1, true) then
-                        table.insert(adminPlayers, player)
                         Protection.adminDetected = true
                         return true
                     end
@@ -331,7 +329,6 @@ if game.GameId == 847722000 then
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
                         if tool:IsA("Tool") and (tool.Name:lower():find("admin") or tool.Name:lower():find("mod")) then
-                            table.insert(adminPlayers, player)
                             Protection.adminDetected = true
                             return true
                         end
@@ -348,14 +345,11 @@ if game.GameId == 847722000 then
     local function bypassAntiCheat()
         if not Protection.antiCheatActive then return false end
         
-        -- Hook common anti-cheat functions
         local hookf = hookfunction
         if type(hookf) == "function" then
-            -- Bypass detection functions
             pcall(function()
                 local env = getrenv and getrenv() or _G
                 if env and type(env) == "table" then
-                    -- Look for common anti-cheat function names
                     local acNames = {"Detected", "Kill", "Ban", "Check", "Scan", "Log", "Report", "Flag"}
                     for _, name in ipairs(acNames) do
                         local fn = rawget(env, name)
@@ -366,7 +360,6 @@ if game.GameId == 847722000 then
                 end
             end)
             
-            -- Hook debug.info to hide script
             pcall(function()
                 local dbg = debug
                 if dbg and type(dbg.info) == "function" then
@@ -381,7 +374,6 @@ if game.GameId == 847722000 then
             end)
         end
         
-        -- Hide script from stack traces
         pcall(function()
             local oldError = error
             error = function(msg, level)
@@ -415,12 +407,9 @@ if game.GameId == 847722000 then
                     local oldFire = event.FireServer
                     if oldFire then
                         event.FireServer = function(self, ...)
-                            -- Add random delay to avoid pattern detection
                             task.wait(math.random() * 0.03)
-                            -- Randomize arguments slightly if possible
                             local args = {...}
                             if #args > 0 then
-                                -- Add random noise to numbers
                                 for i, v in ipairs(args) do
                                     if type(v) == "number" and v > 0 then
                                         args[i] = v + (math.random() - 0.5) * 0.1
@@ -440,7 +429,6 @@ if game.GameId == 847722000 then
     local function hideExploitSigns()
         if not Protection.exploitSignsHidden then return end
         
-        -- Hide exploit GUI elements
         pcall(function()
             for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
                 if gui:IsA("ScreenGui") and (
@@ -455,7 +443,6 @@ if game.GameId == 847722000 then
             end
         end)
         
-        -- Hide suspicious tool names
         pcall(function()
             local backpack = LocalPlayer:FindFirstChild("Backpack")
             if backpack then
@@ -470,7 +457,6 @@ if game.GameId == 847722000 then
             end
         end)
         
-        -- Hide suspicious RemoteEvent usage
         pcall(function()
             for _, event in ipairs(ReplicatedStorage:GetChildren()) do
                 if event:IsA("RemoteEvent") and event.Name:lower():find("exploit") then
@@ -485,27 +471,23 @@ if game.GameId == 847722000 then
         if not st.autoDisableOnAdmin then return end
         
         if Protection.adminDetected then
-            -- Disable killaura
             if st.rakeAura then
                 st.rakeAura = false
                 _G.RakeKillAura = false
                 cfgSet("rakeAura", false)
             end
             
-            -- Disable ESP
             for _, config in pairs(ESPConfig) do
                 if config.Enabled then
                     config.Enabled = false
                 end
             end
             
-            -- Disable auto features
             st.autoSupplyCollect = false
             st.autoScrapCollect = false
             st.autoHealSelf = false
             st.autoHealPlayers = false
             
-            -- Notify user
             notify("🛡️ PROTECTION", "Admin detected! Features temporarily disabled for safety.", 5)
         end
     end
@@ -516,14 +498,12 @@ if game.GameId == 847722000 then
         if currentTime - Protection.lastCheck >= Protection.checkInterval then
             Protection.lastCheck = currentTime
             
-            -- Run all protection checks
             pcall(detectAdmins)
             pcall(bypassAntiCheat)
             pcall(spoofRemoteEvents)
             pcall(hideExploitSigns)
             pcall(autoDisableOnAdmin)
             
-            -- Re-apply protection if disabled
             if not Protection.enabled then
                 Protection.enabled = true
                 notify("🛡️ PROTECTION", "Protection system re-enabled.", 3)
@@ -1904,7 +1884,8 @@ if game.GameId == 847722000 then
             pad.PaddingBottom = UDim.new(0,8)
             pad.PaddingLeft = UDim.new(0,10)
             pad.PaddingRight = UDim.new(0,10)
-            pad.Parent = root        end
+            pad.Parent = root
+        end
         
         local lbl = root:FindFirstChild("Text")
         if not lbl then
@@ -2564,32 +2545,15 @@ if game.GameId == 847722000 then
         end
     })
 
-    -- ========== PROTECTION TAB (NEW) ==========
+    -- ========== PROTECTION TAB (FIXED) ==========
     protectionTab:CreateSection({ name = "🛡️ Protection Status" })
     
-    protectionTab:CreateLabel({
-        name = "🛡️ All protection systems are AUTO-ON by default"
-    })
-    
-    protectionTab:CreateLabel({
-        name = "✅ Anti-Cheat Bypass: ACTIVE"
-    })
-    
-    protectionTab:CreateLabel({
-        name = "✅ Admin Detection: ACTIVE"
-    })
-    
-    protectionTab:CreateLabel({
-        name = "✅ Remote Spoofing: ACTIVE"
-    })
-    
-    protectionTab:CreateLabel({
-        name = "✅ Exploit Sign Hiding: ACTIVE"
-    })
-    
-    protectionTab:CreateLabel({
-        name = "✅ Auto-Disable on Admin: ACTIVE"
-    })
+    protectionTab:CreateLabel("🛡️ All protection systems are AUTO-ON by default")
+    protectionTab:CreateLabel("✅ Anti-Cheat Bypass: ACTIVE")
+    protectionTab:CreateLabel("✅ Admin Detection: ACTIVE")
+    protectionTab:CreateLabel("✅ Remote Spoofing: ACTIVE")
+    protectionTab:CreateLabel("✅ Exploit Sign Hiding: ACTIVE")
+    protectionTab:CreateLabel("✅ Auto-Disable on Admin: ACTIVE")
 
     protectionTab:CreateSection({ name = "📊 Protection Stats" })
     
@@ -2601,7 +2565,7 @@ if game.GameId == 847722000 then
             status = status .. "✅ Admin Detected: " .. (Protection.adminDetected and "⚠️ YES" or "NO") .. "\n"
             status = status .. "✅ Remote Spoofing: " .. (Protection.remoteSpoofEnabled and "ACTIVE" or "INACTIVE") .. "\n"
             status = status .. "✅ Exploit Signs Hidden: " .. (Protection.exploitSignsHidden and "YES" or "NO") .. "\n"
-            status = status .. "✅ Auto-Disable: " .. (st.autoDisableOnAdmin and "ENABLED" : "DISABLED")
+            status = status .. "✅ Auto-Disable: " .. (st.autoDisableOnAdmin and "ENABLED" or "DISABLED")
             notify("🛡️ Protection Status", status, 5)
         end
     })
@@ -2650,7 +2614,6 @@ if game.GameId == 847722000 then
         notify("🛡️ PROTECTION", "Enhanced protection system initializing...", 3)
         task.wait(0.5)
         
-        -- Run initial protection setup
         pcall(bypassAntiCheat)
         pcall(spoofRemoteEvents)
         pcall(hideExploitSigns)
