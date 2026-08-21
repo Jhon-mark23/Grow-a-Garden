@@ -29,7 +29,7 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v2.1.0"
+    local SCRIPT_VERSION = "v2.1.1"
     local SCRIPT_NAME = "The Rake Enhanced - Full Features"
 
     -- Load Rayfield Gen2
