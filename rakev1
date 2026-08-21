@@ -29,8 +29,8 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v2.0.1"
-    local SCRIPT_NAME = "The Rake Resmatered"
+    local SCRIPT_VERSION = "v2.0.5"
+    local SCRIPT_NAME = "The Rake Enhanced - Full Features"
 
     -- Load Rayfield Gen2
     local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
@@ -62,8 +62,8 @@ if game.GameId == 847722000 then
 
     -- Create Window
     local window = Rayfield:CreateWindow({
-        name = "The Rake Resmatered BETA",
-        subtitle = "ESP + Exploits + Auto Heal",
+        name = "Project The Rake",
+        subtitle = "ESP + Exploits + Auto Heal + Power",
     })
 
     -- Create Tabs
@@ -178,6 +178,7 @@ if game.GameId == 847722000 then
     local RunService = game:GetService("RunService")
     local Workspace = game:GetService("Workspace")
     local Lighting = game:GetService("Lighting")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local LocalPlayer = Players.LocalPlayer
 
     -- ========== STATE ==========
@@ -188,6 +189,8 @@ if game.GameId == 847722000 then
         fovOn = cfgGet("fovOn", false),
         unlockThirdPerson = cfgGet("unlockThirdPerson", false),
         infoBubble = cfgGet("infoBubble", false),
+        noFog = cfgGet("noFog", false),
+        disableShadows = cfgGet("disableShadows", false),
         
         -- Player
         minZoom = cfgGet("minZoom", 0.5),
@@ -210,9 +213,22 @@ if game.GameId == 847722000 then
         autoPowerRestore = cfgGet("autoPowerRestore", false),
         powerRestoreUseToolbox = cfgGet("powerRestoreUseToolbox", true),
         spawnNotifications = cfgGet("spawnNotifications", true),
+        
+        -- ESP (enhanced from second script)
+        supplyDropESP = cfgGet("supplyDropESP", false),
+        rakeTrapESP = cfgGet("rakeTrapESP", false),
+        scrapESP = cfgGet("scrapESP", false),
+        espTextSize = cfgGet("espTextSize", 12),
+        espMaxDistance = cfgGet("espMaxDistance", 5000),
+        espShowDistance = cfgGet("espShowDistance", true),
+        espChams = cfgGet("espChams", true),
+        autoSupplyCollect = cfgGet("autoSupplyCollect", false),
+        autoScrapCollect = cfgGet("autoScrapCollect", false),
+        promptBypass = cfgGet("promptBypass", false),
+        promptDistance = cfgGet("promptDistance", 25),
     }
 
-    -- ========== ESP CONFIGURATION (FIXED COLORS) ==========
+    -- ========== ESP CONFIGURATION ==========
     local ESPConfig = {
         Players = {
             Enabled = cfgGet("ESP_Players", false),
@@ -248,17 +264,34 @@ if game.GameId == 847722000 then
         },
         Locations = {
             Enabled = cfgGet("ESP_Locations", false)
+        },
+        -- Enhanced ESP
+        SupplyDrop = {
+            Enabled = false,
+            FillColor = Color3.fromRGB(251, 255, 0), -- YELLOW
+            FillTransparency = 0.3,
+            OutlineColor = Color3.fromRGB(251, 255, 0),
+            OutlineTransparency = 0,
+            TextColor = Color3.fromRGB(251, 255, 0)
+        },
+        RakeTrap = {
+            Enabled = false,
+            FillColor = Color3.fromRGB(255, 85, 0), -- ORANGE
+            FillTransparency = 0.3,
+            OutlineColor = Color3.fromRGB(255, 85, 0),
+            OutlineTransparency = 0,
+            TextColor = Color3.fromRGB(255, 85, 0)
         }
     }
 
-    -- ========== LOCATION DATA (FIXED COLORS) ==========
+    -- ========== LOCATION DATA ==========
     local LocationData = {
-        {Name = "Safe House", Position = Vector3.new(-370, 16, 75), Color = Color3.fromRGB(0, 255, 255)},      -- CYAN
-        {Name = "Observation Tower", Position = Vector3.new(69, 57, -69), Color = Color3.fromRGB(255, 150, 0)}, -- ORANGE
-        {Name = "Power Station", Position = Vector3.new(-285, 19, -210), Color = Color3.fromRGB(255, 255, 0)},  -- YELLOW
-        {Name = "Shop", Position = Vector3.new(-25, 16, -250), Color = Color3.fromRGB(255, 0, 255)},           -- MAGENTA
-        {Name = "Base Camp", Position = Vector3.new(-43, 17, 200), Color = Color3.fromRGB(0, 255, 0)},         -- GREEN
-        {Name = "Cave", Position = Vector3.new(-160, 20, 20), Color = Color3.fromRGB(255, 255, 255)}          -- WHITE
+        {Name = "Safe House", Position = Vector3.new(-370, 16, 75), Color = Color3.fromRGB(0, 255, 255)},
+        {Name = "Observation Tower", Position = Vector3.new(69, 57, -69), Color = Color3.fromRGB(255, 150, 0)},
+        {Name = "Power Station", Position = Vector3.new(-285, 19, -210), Color = Color3.fromRGB(255, 255, 0)},
+        {Name = "Shop", Position = Vector3.new(-25, 16, -250), Color = Color3.fromRGB(255, 0, 255)},
+        {Name = "Base Camp", Position = Vector3.new(-43, 17, 200), Color = Color3.fromRGB(0, 255, 0)},
+        {Name = "Cave", Position = Vector3.new(-160, 20, 20), Color = Color3.fromRGB(255, 255, 255)}
     }
 
     -- ========== ESP SYSTEM ==========
@@ -267,21 +300,88 @@ if game.GameId == 847722000 then
         TextEntries = {},
         LocationMarkers = {},
         Connections = {},
-        IsRunning = false
+        IsRunning = false,
+        drops = {},
+        traps = {},
+        scraps = {},
     }
 
     -- ========== DETECTION ==========
-    local function isScrap(obj)
-        if not obj then return false end
-        if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
-        return obj.Name:lower() == "scrap"
+    -- FIXED: getScrapRoot defined BEFORE isCollectibleScrap
+    local function getScrapRoot()
+        local filter = Workspace:FindFirstChild("Filter")
+        return filter and filter:FindFirstChild("ScrapSpawns") or nil
     end
 
-    local function isFlareGun(obj)
+    -- ========== FIXED: Only detect collectible scraps ==========
+    local function isCollectibleScrap(obj)
+        if not obj then return false end
+        if not obj:IsA("BasePart") then return false end
+        if obj.Name ~= "Scrap" then return false end
+        
+        -- Check if it's inside a Supply Box (decorative, not collectible)
+        local parent = obj.Parent
+        while parent do
+            if parent.Name == "Box" and parent:IsA("Model") then
+                return false -- It's inside a box, skip it
+            end
+            parent = parent.Parent
+        end
+        
+        -- Check if it's in the ScrapSpawns folder
+        local root = getScrapRoot()
+        if root and obj:IsDescendantOf(root) then
+            return true
+        end
+        
+        return false
+    end
+
+    -- ========== FIXED: Only detect REAL flaregun ==========
+    local function isRealFlareGun(obj)
         if not obj then return false end
         if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
+        
+        -- EXACT match only - no partial matches
         local name = obj.Name
-        return (name == "FlareGunPickUp") or (name:lower():find("flaregun") ~= nil)
+        if name == "FlareGunPickUp" then
+            -- Additional check: make sure it's not a paper pickup
+            if obj:IsA("BasePart") then
+                -- Real flaregun has specific size/shape
+                if obj.Size.Magnitude > 1 then
+                    return true
+                end
+            elseif obj:IsA("Model") then
+                -- Check if it has a real flaregun model
+                local parts = obj:GetChildren()
+                if #parts > 2 then -- Real flaregun model has multiple parts
+                    return true
+                end
+            end
+            return true
+        end
+        
+        return false
+    end
+
+    -- Enhanced detection from second script
+    local function isSupplyDrop(obj)
+        return obj and obj.Name == "Box" and obj:IsA("Model")
+    end
+
+    local function isRakeTrap(obj)
+        return obj and obj.Name == "RakeTrapModel" and obj:IsA("Model")
+    end
+
+    local function getDropRoot()
+        local debris = Workspace:FindFirstChild("Debris")
+        if not debris then return nil end
+        return debris:FindFirstChild("SupplyCrates") or debris:FindFirstChild("SupplyCreates")
+    end
+
+    local function getTrapRoot()
+        local debris = Workspace:FindFirstChild("Debris")
+        return debris and debris:FindFirstChild("Traps") or nil
     end
 
     -- ========== ESP CORE ==========
@@ -355,7 +455,7 @@ if game.GameId == 847722000 then
         label.TextStrokeTransparency = 0.3
         label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         label.Font = Enum.Font.SourceSansBold
-        label.TextSize = 14
+        label.TextSize = st.espTextSize or 12
         label.TextWrapped = true
 
         local entry = {
@@ -411,11 +511,14 @@ if game.GameId == 847722000 then
         local pos = self:getObjectPosition(entry.Object)
         local dist = self:getDistanceFromPlayer(pos)
         
-        -- Only show distance in km
+        -- Show distance in METERS (not km)
         local text = entry.DisplayName
-        if dist then
-            local km = dist / 1000
-            text = string.format("%s | %.2f km", entry.DisplayName, km)
+        if dist and st.espShowDistance then
+            if dist >= 1000 then
+                text = string.format("%s | %.2f km", entry.DisplayName, dist / 1000)
+            else
+                text = string.format("%s | %.0f m", entry.DisplayName, dist)
+            end
         end
         
         entry.Label.Text = text
@@ -436,6 +539,46 @@ if game.GameId == 847722000 then
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not root then return nil end
         return (root.Position - position).Magnitude
+    end
+
+    -- ========== ENHANCED ESP FUNCTIONS ==========
+    function ESP:AddSupplyDrop(drop)
+        if not drop or ESP.Highlights[drop] then return end
+        self:AddESP(drop, "SupplyDrop", "Supply Drop")
+    end
+
+    function ESP:AddRakeTrap(trap)
+        if not trap or ESP.Highlights[trap] then return end
+        self:AddESP(trap, "RakeTrap", "Rake Trap")
+    end
+
+    function ESP:AddScrapEnhanced(scrap)
+        if not scrap or ESP.Highlights[scrap] then return end
+        self:AddESP(scrap, "Scrap", "Scrap")
+    end
+
+    function ESP:CleanupEnhanced(kind)
+        if not kind or kind == "drops" then
+            for obj in pairs(self.Highlights) do
+                if isSupplyDrop(obj) then
+                    self:RemoveESP(obj)
+                end
+            end
+        end
+        if not kind or kind == "traps" then
+            for obj in pairs(self.Highlights) do
+                if isRakeTrap(obj) then
+                    self:RemoveESP(obj)
+                end
+            end
+        end
+        if not kind or kind == "scraps" then
+            for obj in pairs(self.Highlights) do
+                if isCollectibleScrap(obj) then
+                    self:RemoveESP(obj)
+                end
+            end
+        end
     end
 
     -- ========== LOCATION ESP ==========
@@ -477,7 +620,7 @@ if game.GameId == 847722000 then
         label.TextStrokeTransparency = 0.3
         label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         label.Font = Enum.Font.SourceSansBold
-        label.TextSize = 12
+        label.TextSize = st.espTextSize or 12
         
         return {Marker = marker, Highlight = highlight, Gui = gui, Label = label, LocationData = locationData}
     end
@@ -503,9 +646,12 @@ if game.GameId == 847722000 then
                 local dist = self:getDistanceFromPlayer(pos)
                 
                 local text = markerEntry.LocationData.Name
-                if dist then
-                    local km = dist / 1000
-                    text = string.format("%s | %.2f km", markerEntry.LocationData.Name, km)
+                if dist and st.espShowDistance then
+                    if dist >= 1000 then
+                        text = string.format("%s | %.2f km", markerEntry.LocationData.Name, dist / 1000)
+                    else
+                        text = string.format("%s | %.0f m", markerEntry.LocationData.Name, dist)
+                    end
                 end
                 
                 markerEntry.Label.Text = text
@@ -518,10 +664,13 @@ if game.GameId == 847722000 then
     local OBJECT_SCAN_INTERVAL = 1.0
 
     local function updateObjectTargets()
+        -- Original ESP targets
         if not ESPConfig.Players.Enabled and 
            not ESPConfig.Rake.Enabled and 
            not ESPConfig.FlareGun.Enabled and 
-           not ESPConfig.Scrap.Enabled then
+           not ESPConfig.Scrap.Enabled and
+           not ESPConfig.SupplyDrop.Enabled and
+           not ESPConfig.RakeTrap.Enabled then
             return
         end
         
@@ -533,27 +682,55 @@ if game.GameId == 847722000 then
             end
         end
         
-        -- Flare Gun
+        -- Flare Gun (FIXED: Only real flaregun)
         if ESPConfig.FlareGun.Enabled then
             for _, obj in ipairs(Workspace:GetDescendants()) do
-                if isFlareGun(obj) and not ESP.Highlights[obj] then
+                if isRealFlareGun(obj) and not ESP.Highlights[obj] then
                     ESP:AddESP(obj, "FlareGun", "FLARE GUN")
                 end
             end
         end
         
-        -- Scrap
+        -- Scrap (FIXED: Only collectible scraps)
         if ESPConfig.Scrap.Enabled then
             for _, obj in ipairs(Workspace:GetDescendants()) do
-                if isScrap(obj) and obj:IsA("BasePart") then
+                if isCollectibleScrap(obj) then
                     if not ESP.Highlights[obj] then
                         ESP:AddESP(obj, "Scrap", "SCRAP")
                     end
                 end
             end
         end
+
+        -- ENHANCED: Supply Drops
+        if ESPConfig.SupplyDrop.Enabled then
+            local root = getDropRoot()
+            if root then
+                for _, obj in ipairs(root:GetChildren()) do
+                    if isSupplyDrop(obj) and not ESP.Highlights[obj] then
+                        ESP:AddSupplyDrop(obj)
+                    end
+                end
+            end
+        else
+            ESP:CleanupEnhanced("drops")
+        end
+
+        -- ENHANCED: Rake Traps
+        if ESPConfig.RakeTrap.Enabled then
+            local root = getTrapRoot()
+            if root then
+                for _, obj in ipairs(root:GetChildren()) do
+                    if isRakeTrap(obj) and not ESP.Highlights[obj] then
+                        ESP:AddRakeTrap(obj)
+                    end
+                end
+            end
+        else
+            ESP:CleanupEnhanced("traps")
+        end
         
-        -- Clean up
+        -- Clean up invalid objects
         local toRemove = {}
         for object, highlight in pairs(ESP.Highlights) do
             if not object:IsDescendantOf(Workspace) then
@@ -573,11 +750,19 @@ if game.GameId == 847722000 then
                     end
                 end
                 
-                if not isEnabled and ESPConfig.FlareGun.Enabled and isFlareGun(object) then
+                if not isEnabled and ESPConfig.FlareGun.Enabled and isRealFlareGun(object) then
                     isEnabled = true
                 end
                 
-                if not isEnabled and ESPConfig.Scrap.Enabled and isScrap(object) then
+                if not isEnabled and ESPConfig.Scrap.Enabled and isCollectibleScrap(object) then
+                    isEnabled = true
+                end
+
+                if not isEnabled and ESPConfig.SupplyDrop.Enabled and isSupplyDrop(object) then
+                    isEnabled = true
+                end
+
+                if not isEnabled and ESPConfig.RakeTrap.Enabled and isRakeTrap(object) then
                     isEnabled = true
                 end
                 
@@ -805,6 +990,20 @@ if game.GameId == 847722000 then
         setFullbrightValues()
         bindFullbrightSignals()
         return true
+    end
+
+    -- ========== NO FOG ==========
+    function applyNoFog()
+        if st.noFog then
+            Lighting.FogEnd = 9e9
+        end
+    end
+
+    -- ========== DISABLE SHADOWS ==========
+    function applyDisableShadows()
+        if st.disableShadows then
+            Lighting.GlobalShadows = false
+        end
     end
 
     -- ========== FOV ==========
@@ -1138,7 +1337,7 @@ if game.GameId == 847722000 then
         local prompt = guiPart and guiPart:FindFirstChildWhichIsA("ProximityPrompt")
         local ev = station and station:FindFirstChild("RemoteEvent")
         local progress = station and station:FindFirstChild("Progress")
-        local stationPower = game:GetService("ReplicatedStorage"):FindFirstChild("StationPower")
+        local stationPower = ReplicatedStorage:FindFirstChild("StationPower")
         local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
         if not (station and guiPart and prompt and ev and root and hum) then
@@ -1196,7 +1395,7 @@ if game.GameId == 847722000 then
     end
     function autoRestorePower()
         if st.autoPowerRestore ~= true or powerRepairBusy == true then return false end
-        local stationPower = game:GetService("ReplicatedStorage"):FindFirstChild("StationPower")
+        local stationPower = ReplicatedStorage:FindFirstChild("StationPower")
         if not stationPower or stationPower.Value == true then return false end
         task.spawn(function() repairPowerStation() end)
         return true
@@ -1297,20 +1496,20 @@ if game.GameId == 847722000 then
         return s, ev, hp
     end
     function auraHasPower()
-        local p = game:GetService("ReplicatedStorage"):FindFirstChild("StationPower")
+        local p = ReplicatedStorage:FindFirstChild("StationPower")
         if p and p.Value ~= true then return false end
         return true
     end
     function auraHasStamina()
         if st.infStamina == true then return true end
-        local g = game:GetService("ReplicatedStorage"):FindFirstChild("GSTMNA")
+        local g = ReplicatedStorage:FindFirstChild("GSTMNA")
         if not g then return true end
         local ok, val = pcall(function() return g:Invoke() end)
         return not ok or not val or val >= 12
     end
     function auraTakeStamina()
         if st.infStamina == true then return end
-        local tks = game:GetService("ReplicatedStorage"):FindFirstChild("TKSMNA")
+        local tks = ReplicatedStorage:FindFirstChild("TKSMNA")
         if tks then
             pcall(function() tks:Fire(12) end)
         end
@@ -1326,11 +1525,12 @@ if game.GameId == 847722000 then
         pcall(function() ev:FireServer("H", hit) end)
     end
 
-    -- ========== BRING ITEMS (spawn on head) ==========
+    -- ========== BRING ITEMS (Spawns on HEAD) ==========
     function bringScraps()
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            notify("Error", "Character not found!", 2)
+        -- Get the Head part instead of HumanoidRootPart
+        local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+        if not head then
+            notify("Error", "Character or Head not found!", 2)
             return 0
         end
         
@@ -1349,9 +1549,10 @@ if game.GameId == 847722000 then
         end
         
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if isScrap(obj) and obj:IsA("BasePart") and not isInCharacter(obj) then
+            if isCollectibleScrap(obj) and not isInCharacter(obj) then
                 pcall(function()
-                    obj.CFrame = hrp.CFrame * CFrame.new(0, 3.5 + (count * 0.5), 0)
+                    -- Spawn directly ON the Head (CFrame at Head position)
+                    obj.CFrame = head.CFrame * CFrame.new(0, 0.5 + (count * 0.5), 0)
                     obj.AssemblyLinearVelocity = Vector3.zero
                     obj.AssemblyAngularVelocity = Vector3.zero
                 end)
@@ -1361,17 +1562,18 @@ if game.GameId == 847722000 then
         
         return count
     end
-
+    
     function bringFlaregun()
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            notify("Error", "Character not found!", 2)
+        -- Get the Head part instead of HumanoidRootPart
+        local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+        if not head then
+            notify("Error", "Character or Head not found!", 2)
             return 0
         end
         
         local flaregun = nil
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if isFlareGun(obj) then
+            if isRealFlareGun(obj) then
                 flaregun = obj
                 break
             end
@@ -1380,17 +1582,122 @@ if game.GameId == 847722000 then
         if flaregun then
             pcall(function()
                 if flaregun:IsA("BasePart") then
-                    flaregun.CFrame = hrp.CFrame * CFrame.new(0, 3.5, 0)
+                    -- Spawn directly ON the Head (CFrame at Head position)
+                    flaregun.CFrame = head.CFrame * CFrame.new(0, 0.5, 0)
                     flaregun.AssemblyLinearVelocity = Vector3.zero
                     flaregun.AssemblyAngularVelocity = Vector3.zero
                 elseif flaregun:IsA("Model") then
-                    flaregun:PivotTo(hrp.CFrame * CFrame.new(0, 3.5, 0))
+                    -- Spawn directly ON the Head
+                    flaregun:PivotTo(head.CFrame * CFrame.new(0, 0.5, 0))
                 end
             end)
             return 1
         end
         
         return 0
+    end
+
+    -- ========== AUTO COLLECT (Instant Supply Drop) ==========
+    function autoSupplyCollect()
+        if not st.autoSupplyCollect then return 0 end
+        local ev = ReplicatedStorage:FindFirstChild("SupplyClientEvent")
+        local debris = Workspace:FindFirstChild("Debris")
+        local crates = debris and debris:FindFirstChild("SupplyCrates")
+        if not ev or not crates then return 0 end
+        
+        local n = 0
+        for _, box in ipairs(crates:GetChildren()) do
+            if box.Name == "Box" then
+                -- Fast prompt
+                local gui = box:FindFirstChild("GUIPart")
+                local prompt = gui and gui:FindFirstChildWhichIsA("ProximityPrompt")
+                if prompt then
+                    pcall(function()
+                        prompt.HoldDuration = 0
+                        prompt.RequiresLineOfSight = false
+                        prompt.MaxActivationDistance = 25
+                    end)
+                end
+                
+                local items = box:FindFirstChild("Items_Folder")
+                if items then
+                    for _, item in ipairs(items:GetChildren()) do
+                        local taken = item:FindFirstChild("Taken")
+                        if taken and taken.Value ~= true then
+                            pcall(function() ev:FireServer("Collect", item.Name) end)
+                            n = n + 1
+                        end
+                    end
+                end
+            end
+        end
+        return n
+    end
+
+    function autoScrapCollect()
+        if not st.autoScrapCollect then return false end
+        local root = getScrapRoot()
+        if not root then return false end
+        
+        local hasScrap = false
+        for _, obj in ipairs(root:GetDescendants()) do
+            if obj:IsA("BasePart") and isCollectibleScrap(obj) then
+                hasScrap = true
+                break
+            end
+        end
+        
+        if not hasScrap then return false end
+        
+        task.spawn(function()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+            if not (hrp and hum) then return end
+            
+            local oldCf = hrp.CFrame
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            local scrapFolder = backpack and backpack:FindFirstChild("ScrapFolder")
+            local points = scrapFolder and scrapFolder:FindFirstChild("Points")
+            
+            for _, scrap in ipairs(root:GetDescendants()) do
+                if isCollectibleScrap(scrap) then
+                    if hum.Health <= 0 or not hrp.Parent then break end
+                    pcall(function()
+                        hrp.CFrame = scrap.CFrame * CFrame.new(0, 1.5, 0)
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                    end)
+                    task.wait(0.15)
+                    pcall(function() hrp.CFrame = scrap.CFrame end)
+                    task.wait(0.15)
+                end
+            end
+            
+            pcall(function()
+                hrp.CFrame = oldCf
+                hrp.AssemblyLinearVelocity = Vector3.zero
+            end)
+        end)
+        
+        return true
+    end
+
+    -- ========== PROMPT BYPASS ==========
+    function applyPromptBypass()
+        if not st.promptBypass then return 0 end
+        local n = 0
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") then
+                pcall(function()
+                    obj.Enabled = true
+                    obj.HoldDuration = 0
+                    obj.RequiresLineOfSight = false
+                    obj.ClickablePrompt = true
+                    obj.MaxActivationDistance = math.clamp(tonumber(st.promptDistance) or 25, 5, 100)
+                    n = n + 1
+                end)
+            end
+        end
+        return n
     end
 
     -- ========== INFO BUBBLE ==========
@@ -1545,7 +1852,7 @@ if game.GameId == 847722000 then
         bloodHourCheckT = bloodHourCheckT + dt
         if bloodHourCheckT < 1 then return end
         bloodHourCheckT = 0
-        local bh = game:GetService("ReplicatedStorage"):FindFirstChild("InitiateBloodHour")
+        local bh = ReplicatedStorage:FindFirstChild("InitiateBloodHour")
         if bh and bh.Value == true then
             notify("🌕 ALERT", "HOLY JESUS BLOOD HOUR IS COMING NOW", 5)
             bh.Value = false
@@ -1586,10 +1893,10 @@ if game.GameId == 847722000 then
     end
     function SpawnNotifier:startListening()
         Workspace.DescendantAdded:Connect(function(obj)
-            if obj.Name == "Scrap" and obj:IsA("BasePart") then
+            if isCollectibleScrap(obj) then
                 self:notifyScrap(obj)
             end
-            if obj.Name == "FlareGunPickUp" or (obj.Name:lower():find("flaregun") and obj:IsA("BasePart")) then
+            if isRealFlareGun(obj) then
                 self:notifyFlaregun(obj)
             end
         end)
@@ -1598,7 +1905,7 @@ if game.GameId == 847722000 then
             local scrapRoot = filter and filter:FindFirstChild("ScrapSpawns")
             if scrapRoot then
                 for _, obj in ipairs(scrapRoot:GetDescendants()) do
-                    if obj.Name == "Scrap" and obj:IsA("BasePart") then
+                    if isCollectibleScrap(obj) then
                         self:notifyScrap(obj)
                     end
                 end
@@ -1606,7 +1913,7 @@ if game.GameId == 847722000 then
             local fl = Workspace:FindFirstChild("FlareGunPickUp", true)
             if not fl then
                 for _, obj in ipairs(Workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") and obj.Name:lower():find("flaregun") then
+                    if isRealFlareGun(obj) then
                         fl = obj
                         break
                     end
@@ -1664,7 +1971,7 @@ if game.GameId == 847722000 then
             if not Value then
                 local toRemove = {}
                 for object, highlight in pairs(ESP.Highlights) do
-                    if isFlareGun(object) then
+                    if isRealFlareGun(object) then
                         table.insert(toRemove, object)
                     end
                 end
@@ -1684,7 +1991,7 @@ if game.GameId == 847722000 then
             if not Value then
                 local toRemove = {}
                 for object, highlight in pairs(ESP.Highlights) do
-                    if isScrap(object) then
+                    if isCollectibleScrap(object) then
                         table.insert(toRemove, object)
                     end
                 end
@@ -1705,25 +2012,109 @@ if game.GameId == 847722000 then
         end
     })
 
+    espTab:CreateToggle({
+        name = "ESP Supply Drops (Yellow)",
+        currentValue = ESPConfig.SupplyDrop.Enabled,
+        callback = function(Value)
+            ESPConfig.SupplyDrop.Enabled = Value
+            cfgSet("supplyDropESP", Value)
+            if not Value then
+                ESP:CleanupEnhanced("drops")
+            end
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "ESP Rake Traps (Orange)",
+        currentValue = ESPConfig.RakeTrap.Enabled,
+        callback = function(Value)
+            ESPConfig.RakeTrap.Enabled = Value
+            cfgSet("rakeTrapESP", Value)
+            if not Value then
+                ESP:CleanupEnhanced("traps")
+            end
+        end
+    })
+
     espTab:CreateSection({ name = "ESP Settings" })
     
     espTab:CreateSlider({
-        name = "Update Interval (seconds)",
-        min = 0.1,
-        max = 2.0,
-        default = UPDATE_INTERVAL,
+        name = "ESP Text Size",
+        min = 8,
+        max = 24,
+        default = st.espTextSize,
         callback = function(Value)
-            UPDATE_INTERVAL = Value
+            st.espTextSize = math.clamp(Value, 8, 24)
+            cfgSet("espTextSize", st.espTextSize)
         end
     })
 
     espTab:CreateSlider({
-        name = "Scan Interval (seconds)",
-        min = 0.5,
-        max = 3.0,
-        default = OBJECT_SCAN_INTERVAL,
+        name = "ESP Max Distance (meters)",
+        min = 100,
+        max = 10000,
+        default = st.espMaxDistance,
         callback = function(Value)
-            OBJECT_SCAN_INTERVAL = Value
+            st.espMaxDistance = math.clamp(Value, 100, 10000)
+            cfgSet("espMaxDistance", st.espMaxDistance)
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "Show Distance",
+        currentValue = st.espShowDistance,
+        callback = function(Value)
+            st.espShowDistance = Value
+            cfgSet("espShowDistance", Value)
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "ESP Highlights",
+        currentValue = st.espChams,
+        callback = function(Value)
+            st.espChams = Value
+            cfgSet("espChams", Value)
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "Auto Supply Collect",
+        currentValue = st.autoSupplyCollect,
+        callback = function(Value)
+            st.autoSupplyCollect = Value
+            cfgSet("autoSupplyCollect", Value)
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "Auto Scrap Collect",
+        currentValue = st.autoScrapCollect,
+        callback = function(Value)
+            st.autoScrapCollect = Value
+            cfgSet("autoScrapCollect", Value)
+        end
+    })
+
+    espTab:CreateToggle({
+        name = "Prompt Bypass",
+        currentValue = st.promptBypass,
+        callback = function(Value)
+            st.promptBypass = Value
+            cfgSet("promptBypass", Value)
+            if Value then applyPromptBypass() end
+        end
+    })
+
+    espTab:CreateSlider({
+        name = "Prompt Distance",
+        min = 5,
+        max = 100,
+        default = st.promptDistance,
+        callback = function(Value)
+            st.promptDistance = math.clamp(Value, 5, 100)
+            cfgSet("promptDistance", st.promptDistance)
+            if st.promptBypass then applyPromptBypass() end
         end
     })
 
@@ -1737,6 +2128,26 @@ if game.GameId == 847722000 then
             st.fullbright = value
             cfgSet("fullbright", value)
             applyFullbright()
+        end
+    })
+
+    visualTab:CreateToggle({
+        name = "No Fog",
+        currentValue = st.noFog,
+        callback = function(value)
+            st.noFog = value
+            cfgSet("noFog", value)
+            applyNoFog()
+        end
+    })
+
+    visualTab:CreateToggle({
+        name = "Disable Shadows",
+        currentValue = st.disableShadows,
+        callback = function(value)
+            st.disableShadows = value
+            cfgSet("disableShadows", value)
+            applyDisableShadows()
         end
     })
 
@@ -1942,6 +2353,73 @@ if game.GameId == 847722000 then
         end
     })
 
+    exploitTab:CreateSection({ name = "Instant Supply Drop" })
+    
+    exploitTab:CreateToggle({
+        name = "Auto Open Supply Drops",
+        currentValue = st.autoSupplyCollect,
+        callback = function(Value)
+            st.autoSupplyCollect = Value
+            cfgSet("autoSupplyCollect", Value)
+        end
+    })
+
+    exploitTab:CreateButton({
+        name = "Instant Open All Supply Drops Now",
+        callback = function()
+            task.spawn(function()
+                local count = 0
+                local debris = Workspace:FindFirstChild("Debris")
+                local crates = debris and debris:FindFirstChild("SupplyCrates")
+                if not crates then
+                    notify("Supply Drops", "No supply crates found!", 3)
+                    return
+                end
+                
+                local ev = ReplicatedStorage:FindFirstChild("SupplyClientEvent")
+                if not ev then
+                    notify("Supply Drops", "Remote event not found!", 3)
+                    return
+                end
+                
+                for _, box in ipairs(crates:GetChildren()) do
+                    if box.Name == "Box" then
+                        -- Fast prompt bypass
+                        local gui = box:FindFirstChild("GUIPart")
+                        local prompt = gui and gui:FindFirstChildWhichIsA("ProximityPrompt")
+                        if prompt then
+                            pcall(function()
+                                prompt.HoldDuration = 0
+                                prompt.RequiresLineOfSight = false
+                                prompt.MaxActivationDistance = 25
+                            end)
+                        end
+                        
+                        -- Set unlock value
+                        local unlock = box:FindFirstChild("UnlockValue")
+                        if unlock then
+                            pcall(function() unlock.Value = 100 end)
+                        end
+                        
+                        -- Collect all items
+                        local items = box:FindFirstChild("Items_Folder")
+                        if items then
+                            for _, item in ipairs(items:GetChildren()) do
+                                local taken = item:FindFirstChild("Taken")
+                                if taken and taken.Value ~= true then
+                                    pcall(function() ev:FireServer("Collect", item.Name) end)
+                                    count = count + 1
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                notify("Supply Drops", "Opened " .. count .. " items from crates!", 3)
+            end)
+        end
+    })
+
     exploitTab:CreateSection({ name = "Power Restoration" })
     
     exploitTab:CreateButton({
@@ -2076,6 +2554,8 @@ if game.GameId == 847722000 then
 
     -- Apply initial states
     if st.fullbright then applyFullbright() end
+    if st.noFog then applyNoFog() end
+    if st.disableShadows then applyDisableShadows() end
     if st.infStamina then
         task.spawn(function()
             applyInfTabs()
@@ -2091,6 +2571,7 @@ if game.GameId == 847722000 then
     if st.unlockThirdPerson then applyThirdPerson() end
     if st.infoBubble then syncBubble() end
     if st.spawnNotifications then SpawnNotifier:startListening() end
+    if st.promptBypass then applyPromptBypass() end
 
     bindZoomPlayer(LocalPlayer)
     ESP:Start()
@@ -2100,6 +2581,8 @@ if game.GameId == 847722000 then
         task.wait(0.5)
         if st.unlockThirdPerson then applyThirdPerson(true) end
         if st.fullbright then applyFullbright() end
+        if st.noFog then applyNoFog() end
+        if st.disableShadows then applyDisableShadows() end
         if st.infStamina then applyInfTabs() end
         if st.noFall then applyNoFall() end
         if st.fovOn then applyFov() end
@@ -2142,6 +2625,11 @@ if game.GameId == 847722000 then
         -- WalkSpeed
         if st.walkspeedOn then applyWalkSpeed() end
 
+        -- Auto collect
+        if st.autoSupplyCollect then pcall(autoSupplyCollect) end
+        if st.autoScrapCollect then pcall(autoScrapCollect) end
+        if st.autoPowerRestore then pcall(autoRestorePower) end
+
         -- Info Bubble updates
         if st.infoBubble then
             pcall(function()
@@ -2155,8 +2643,8 @@ if game.GameId == 847722000 then
                 end
             end)
             pcall(function()
-                local timer = game:GetService("ReplicatedStorage"):FindFirstChild("Timer")
-                local night = game:GetService("ReplicatedStorage"):FindFirstChild("Night")
+                local timer = ReplicatedStorage:FindFirstChild("Timer")
+                local night = ReplicatedStorage:FindFirstChild("Night")
                 local sec = fmtTime(timer and timer.Value or 0)
                 if night and night.Value == true then
                     setInfoTime("Time Until Day: " .. sec)
@@ -2165,7 +2653,7 @@ if game.GameId == 847722000 then
                 end
             end)
             pcall(function()
-                local powerValues = game:GetService("ReplicatedStorage"):FindFirstChild("PowerValues")
+                local powerValues = ReplicatedStorage:FindFirstChild("PowerValues")
                 local powerLevel = powerValues and powerValues:FindFirstChild("PowerLevel")
                 setInfoPower("Power: " .. fmtPower(powerLevel and powerLevel.Value or 1000) .. "%")
             end)
