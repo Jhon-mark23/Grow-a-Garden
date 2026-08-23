@@ -29,22 +29,36 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v2.1.5"
+    local SCRIPT_VERSION = "v2.2.1"
     local SCRIPT_NAME = "The Rake Enhanced - Full Features"
 
     -- Load Rayfield Gen2
     local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
     
-    -- Safe notification function
-    local function notify(title, content, duration)
+    -- Safe notification function using Rayfield Toasts
+    local function notify(title, content, duration, isToast)
         duration = duration or 3
+        isToast = (isToast == nil and true) or isToast  -- Default to toast for cleaner UI
+        
         if Rayfield and type(Rayfield.Notify) == "function" then
-            Rayfield:Notify({
-                Title = title,
-                Content = content,
-                Duration = duration,
-            })
+            if isToast then
+                -- Use Toast for clean pill-style notifications
+                Rayfield:Toast({
+                    Title = title,
+                    Subtitle = content,
+                    Duration = duration,
+                    Position = "Top",
+                })
+            else
+                -- Use Notification for larger card-style
+                Rayfield:Notify({
+                    Title = title,
+                    Content = content,
+                    Duration = duration,
+                })
+            end
         else
+            -- Fallback to core GUI
             pcall(function()
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = title,
@@ -57,103 +71,47 @@ if game.GameId == 847722000 then
 
     -- ========== CUSTOM WELCOME NOTIFICATION ==========
     local function showWelcomeNotification()
-        notify("🎮 WELCOME", SCRIPT_NAME .. " " .. SCRIPT_VERSION, 5)
+        notify("🎮 WELCOME", SCRIPT_NAME .. " " .. SCRIPT_VERSION, 5, true)
     end
 
-    -- Create Window
+    -- Create Window with auto-save
     local window = Rayfield:CreateWindow({
         name = "Project The Rake",
-        subtitle = "ESP + Exploits + Auto Heal + Protection",
+        subtitle = "ESP + Exploits + Auto Heal + Power + Kill Aura",
+        theme = "amethyst",
+        showName = "Rake",
+        configuration = {
+            autoSave = true,
+            autoLoad = true,
+            fileName = "ProjectTheRake_Settings"
+        }
     })
 
     -- Create Tabs
-    local espTab = window:CreateTab({ name = "ESP", icon = "eye" })
-    local visualTab = window:CreateTab({ name = "Visuals", icon = "image" })
-    local playerTab = window:CreateTab({ name = "Player", icon = "user" })
-    local exploitTab = window:CreateTab({ name = "Exploits", icon = "shield" })
-    local protectionTab = window:CreateTab({ name = "🛡️ Protection", icon = "lock" })
-    local settingsTab = window:CreateTab({ name = "Settings", icon = "settings" })
+    local espTab = window:CreateTab({
+        name = "ESP",
+        icon = "eye"
+    })
 
-    -- ========== CONFIG MANAGER ==========
-    local Http = game:GetService("HttpService")
-    local cfgFolder = "TheRakeEnhanced"
-    local fileApi = type(readfile) == "function" and type(writefile) == "function"
-    local hasFile = type(isfile) == "function"
-    local folderApi = type(makefolder) == "function"
-    local cfgFile = folderApi and (cfgFolder .. "/Config.json") or "TheRakeEnhanced_Config.json"
-    local hasFolder = type(isfolder) == "function"
-    local saved = {}
+    local visualTab = window:CreateTab({
+        name = "Visuals",
+        icon = "image"
+    })
 
-    local function makeCfgFolder()
-        if not folderApi then return end
-        pcall(function()
-            if not hasFolder or not isfolder(cfgFolder) then
-                makefolder(cfgFolder)
-            end
-        end)
-    end
+    local playerTab = window:CreateTab({
+        name = "Player",
+        icon = "user"
+    })
 
-    local function loadCfg()
-        if not fileApi then return {} end
-        local ok, res = pcall(function()
-            if hasFile and not isfile(cfgFile) then return {} end
-            local raw = readfile(cfgFile)
-            if type(raw) ~= "string" or raw == "" then return {} end
-            local dec = Http:JSONDecode(raw)
-            return type(dec) == "table" and dec or {}
-        end)
-        return ok and res or {}
-    end
+    local exploitTab = window:CreateTab({
+        name = "Exploits",
+        icon = "shield"
+    })
 
-    local function saveCfg(tbl)
-        if not fileApi then return false end
-        makeCfgFolder()
-        local out = {}
-        for k, v in tbl or {} do
-            local tv = typeof(v)
-            if tv == "boolean" or tv == "number" or tv == "string" then
-                out[k] = v
-            end
-        end
-        local ok = pcall(function()
-            writefile(cfgFile, Http:JSONEncode(out))
-        end)
-        return ok
-    end
-
-    local saveQueued = false
-    local saveDirty = false
-    local function saveLater()
-        if not fileApi then return end
-        saveDirty = true
-        if saveQueued then return end
-        saveQueued = true
-        if type(task) ~= "table" or type(task.delay) ~= "function" then
-            saveQueued = false
-            saveDirty = false
-            saveCfg(saved)
-            return
-        end
-        task.delay(0.6, function()
-            saveQueued = false
-            if saveDirty then
-                saveDirty = false
-                saveCfg(saved)
-            end
-        end)
-    end
-
-    saved = loadCfg()
-
-    local function cfgGet(k, def)
-        if saved[k] ~= nil then return saved[k] end
-        return def
-    end
-
-    local function cfgSet(k, v)
-        saved[k] = v
-        saveLater()
-    end
+    local settingsTab = window:CreateTab({
+        name = "Settings",
+        icon = "settings"
+    })
 
     -- ========== SERVICES ==========
     local Players = game:GetService("Players")
@@ -162,65 +120,62 @@ if game.GameId == 847722000 then
     local Lighting = game:GetService("Lighting")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local LocalPlayer = Players.LocalPlayer
-    local UserInputService = game:GetService("UserInputService")
-    local HttpService = game:GetService("HttpService")
 
     -- ========== STATE ==========
     local st = {
         -- Visuals
-        fullbright = cfgGet("fullbright", false),
-        fov = cfgGet("fov", 70),
-        fovOn = cfgGet("fovOn", false),
-        unlockThirdPerson = cfgGet("unlockThirdPerson", false),
-        infoBubble = cfgGet("infoBubble", false),
-        noFog = cfgGet("noFog", false),
-        disableShadows = cfgGet("disableShadows", false),
+        fullbright = false,
+        fov = 70,
+        fovOn = false,
+        unlockThirdPerson = false,
+        infoBubble = false,
+        noFog = false,
+        disableShadows = false,
         
         -- Player
-        minZoom = cfgGet("minZoom", 0.5),
-        maxZoom = cfgGet("maxZoom", 1000),
-        walkspeed = cfgGet("walkspeed", 16),
-        walkspeedOn = cfgGet("walkspeedOn", false),
-        infStamina = cfgGet("infStamina", false),
-        noFall = cfgGet("noFall", false),
-        autoHealSelf = cfgGet("autoHealSelf", false),
-        autoHealPlayers = cfgGet("autoHealPlayers", false),
-        healAutoEquip = cfgGet("healAutoEquip", true),
-        healSelfAt = cfgGet("healSelfAt", 55),
-        healPlayerAt = cfgGet("healPlayerAt", 60),
+        minZoom = 0.5,
+        maxZoom = 1000,
+        walkspeed = 16,
+        walkspeedOn = false,
+        infStamina = false,
+        noFall = false,
+        autoHealSelf = false,
+        autoHealPlayers = false,
+        healAutoEquip = true,
+        healSelfAt = 55,
+        healPlayerAt = 60,
         
         -- Exploits
-        rakeAura = cfgGet("rakeAura", false),
-        rakeAuraRange = cfgGet("rakeAuraRange", 12),
-        rakeAuraDelay = cfgGet("rakeAuraDelay", 0.12),
-        rakeAuraAutoEquip = cfgGet("rakeAuraAutoEquip", true),
-        spawnNotifications = cfgGet("spawnNotifications", true),
+        autoPowerRestore = false,
+        powerRestoreUseToolbox = true,
+        spawnNotifications = true,
+        teleportToPower = false,
+        stayUntilPowered = false,
         
         -- ESP
-        supplyDropESP = cfgGet("supplyDropESP", false),
-        rakeTrapESP = cfgGet("rakeTrapESP", false),
-        scrapESP = cfgGet("scrapESP", false),
-        espTextSize = cfgGet("espTextSize", 12),
-        espMaxDistance = cfgGet("espMaxDistance", 5000),
-        espShowDistance = cfgGet("espShowDistance", true),
-        espChams = cfgGet("espChams", true),
-        autoSupplyCollect = cfgGet("autoSupplyCollect", false),
-        autoScrapCollect = cfgGet("autoScrapCollect", false),
-        promptBypass = cfgGet("promptBypass", false),
-        promptDistance = cfgGet("promptDistance", 25),
-        
-        -- Protection
-        protectionEnabled = true,
-        antiCheatBypass = true,
-        autoDisableOnAdmin = true,
-        hideExploitSigns = true,
-        spoofRemoteEvents = true,
+        supplyDropESP = false,
+        rakeTrapESP = false,
+        scrapESP = false,
+        espTextSize = 12,
+        espMaxDistance = 5000,
+        espShowDistance = true,
+        espChams = true,
+        autoSupplyCollect = false,
+        autoScrapCollect = false,
+        promptBypass = false,
+        promptDistance = 25,
+
+        -- Kill Aura
+        rakeAura = false,
+        rakeAuraRange = 12,
+        rakeAuraDelay = 0.12,
+        rakeAuraAutoEquip = true,
     }
 
     -- ========== ESP CONFIGURATION ==========
     local ESPConfig = {
         Players = {
-            Enabled = cfgGet("ESP_Players", false),
+            Enabled = false,
             FillColor = Color3.fromRGB(255, 255, 255),
             FillTransparency = 0.5,
             OutlineColor = Color3.fromRGB(255, 255, 255),
@@ -228,7 +183,7 @@ if game.GameId == 847722000 then
             TextColor = Color3.fromRGB(255, 255, 255)
         },
         Rake = {
-            Enabled = cfgGet("ESP_Rake", false),
+            Enabled = false,
             FillColor = Color3.fromRGB(255, 0, 0),
             FillTransparency = 0.4,
             OutlineColor = Color3.fromRGB(255, 0, 0),
@@ -236,7 +191,7 @@ if game.GameId == 847722000 then
             TextColor = Color3.fromRGB(255, 0, 0)
         },
         FlareGun = {
-            Enabled = cfgGet("ESP_FlareGun", false),
+            Enabled = false,
             FillColor = Color3.fromRGB(255, 200, 0),
             FillTransparency = 0.3,
             OutlineColor = Color3.fromRGB(255, 200, 0),
@@ -244,7 +199,7 @@ if game.GameId == 847722000 then
             TextColor = Color3.fromRGB(255, 255, 255)
         },
         Scrap = {
-            Enabled = cfgGet("ESP_Scrap", false),
+            Enabled = false,
             FillColor = Color3.fromRGB(139, 69, 19),
             FillTransparency = 0.5,
             OutlineColor = Color3.fromRGB(101, 67, 33),
@@ -252,7 +207,7 @@ if game.GameId == 847722000 then
             TextColor = Color3.fromRGB(255, 255, 255)
         },
         Locations = {
-            Enabled = cfgGet("ESP_Locations", false)
+            Enabled = false
         },
         SupplyDrop = {
             Enabled = false,
@@ -275,9 +230,9 @@ if game.GameId == 847722000 then
     -- ========== LOCATION DATA ==========
     local LocationData = {
         {Name = "Safe House", Position = Vector3.new(-370, 16, 75), Color = Color3.fromRGB(0, 255, 255)},
-        {Name = "Observation Tower", Position = Vector3.new(69, 57, -69), Color = Color3.fromRGB(255, 150, 0)},
+        {Name = "Observation Tower", Position = Vector3.new(52, 57, -59), Color = Color3.fromRGB(255, 150, 0)},
         {Name = "Power Station", Position = Vector3.new(-285, 19, -210), Color = Color3.fromRGB(255, 255, 0)},
-        {Name = "Shop", Position = Vector3.new(-25, 16, -250), Color = Color3.fromRGB(255, 0, 255)},
+        {Name = "Shop", Position = Vector3.new(-26, 17, -259), Color = Color3.fromRGB(255, 0, 255)},
         {Name = "Base Camp", Position = Vector3.new(-43, 17, 200), Color = Color3.fromRGB(0, 255, 0)},
         {Name = "Cave", Position = Vector3.new(-160, 20, 20), Color = Color3.fromRGB(255, 255, 255)}
     }
@@ -294,224 +249,7 @@ if game.GameId == 847722000 then
         scraps = {},
     }
 
-    -- ========== ENHANCED PROTECTION SYSTEM ==========
-    local Protection = {
-        enabled = true,
-        antiCheatActive = true,
-        adminDetected = false,
-        lastCheck = 0,
-        checkInterval = 3,
-        remoteSpoofEnabled = true,
-        exploitSignsHidden = true,
-        protectedRemotes = {},
-    }
-
-    -- ========== ADMIN DETECTION ==========
-    local function detectAdmins()
-        if not Protection.enabled then return false end
-        
-        local adminKeywords = {"admin", "mod", "owner", "rake", "dev", "staff", "helper", "guide"}
-        
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                local name = player.Name:lower()
-                local displayName = player.DisplayName:lower()
-                
-                for _, keyword in ipairs(adminKeywords) do
-                    if name:find(keyword, 1, true) or displayName:find(keyword, 1, true) then
-                        Protection.adminDetected = true
-                        return true
-                    end
-                end
-                
-                -- Check for admin tools
-                local char = player.Character
-                if char then
-                    for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Name:lower():find("admin") or tool.Name:lower():find("mod")) then
-                            Protection.adminDetected = true
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-        
-        Protection.adminDetected = false
-        return false
-    end
-
-    -- ========== ANTI-CHEAT BYPASS ==========
-    local function bypassAntiCheat()
-        if not Protection.antiCheatActive then return false end
-        
-        local hookf = hookfunction
-        if type(hookf) == "function" then
-            pcall(function()
-                local env = getrenv and getrenv() or _G
-                if env and type(env) == "table" then
-                    local acNames = {"Detected", "Kill", "Ban", "Check", "Scan", "Log", "Report", "Flag"}
-                    for _, name in ipairs(acNames) do
-                        local fn = rawget(env, name)
-                        if type(fn) == "function" then
-                            hookf(fn, function() return true end)
-                        end
-                    end
-                end
-            end)
-            
-            pcall(function()
-                local dbg = debug
-                if dbg and type(dbg.info) == "function" then
-                    hookf(dbg.info, function(...)
-                        local args = {...}
-                        if args[1] and tostring(args[1]):find("script", 1, true) then
-                            return nil
-                        end
-                        return dbg.info(...)
-                    end)
-                end
-            end)
-        end
-        
-        pcall(function()
-            local oldError = error
-            error = function(msg, level)
-                if type(msg) == "string" and msg:find("Rake", 1, true) then
-                    return
-                end
-                return oldError(msg, level)
-            end
-        end)
-        
-        return true
-    end
-
-    -- ========== REMOTE EVENT SPOOFING ==========
-    local function spoofRemoteEvents()
-        if not Protection.remoteSpoofEnabled then return end
-        
-        local remoteEvents = {
-            "SupplyClientEvent",
-            "ShopEvent",
-            "TRP_Event",
-            "StartRemote",
-            "SettingsChangedEvent",
-            "RadioChatEvent",
-        }
-        
-        for _, eventName in ipairs(remoteEvents) do
-            local event = ReplicatedStorage:FindFirstChild(eventName)
-            if event and event:IsA("RemoteEvent") then
-                if not Protection.protectedRemotes[event] then
-                    local oldFire = event.FireServer
-                    if oldFire then
-                        event.FireServer = function(self, ...)
-                            task.wait(math.random() * 0.03)
-                            local args = {...}
-                            if #args > 0 then
-                                for i, v in ipairs(args) do
-                                    if type(v) == "number" and v > 0 then
-                                        args[i] = v + (math.random() - 0.5) * 0.1
-                                    end
-                                end
-                            end
-                            return oldFire(self, unpack(args))
-                        end
-                        Protection.protectedRemotes[event] = true
-                    end
-                end
-            end
-        end
-    end
-
-    -- ========== HIDE EXPLOIT SIGNS ==========
-    local function hideExploitSigns()
-        if not Protection.exploitSignsHidden then return end
-        
-        pcall(function()
-            for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
-                if gui:IsA("ScreenGui") and (
-                    gui.Name:lower():find("exploit") or
-                    gui.Name:lower():find("script") or
-                    gui.Name:lower():find("hack") or
-                    gui.Name:lower():find("cheat") or
-                    gui.Name:lower():find("admin")
-                ) then
-                    gui.Enabled = false
-                end
-            end
-        end)
-        
-        pcall(function()
-            local backpack = LocalPlayer:FindFirstChild("Backpack")
-            if backpack then
-                for _, tool in ipairs(backpack:GetChildren()) do
-                    if tool:IsA("Tool") then
-                        local name = tool.Name:lower()
-                        if name:find("exploit") or name:find("hack") or name:find("cheat") then
-                            tool.Name = "Item"
-                        end
-                    end
-                end
-            end
-        end)
-        
-        pcall(function()
-            for _, event in ipairs(ReplicatedStorage:GetChildren()) do
-                if event:IsA("RemoteEvent") and event.Name:lower():find("exploit") then
-                    event.Name = "RemoteEvent"
-                end
-            end
-        end)
-    end
-
-    -- ========== AUTO-DISABLE ON ADMIN ==========
-    local function autoDisableOnAdmin()
-        if not st.autoDisableOnAdmin then return end
-        
-        if Protection.adminDetected then
-            if st.rakeAura then
-                st.rakeAura = false
-                _G.RakeKillAura = false
-                cfgSet("rakeAura", false)
-            end
-            
-            for _, config in pairs(ESPConfig) do
-                if config.Enabled then
-                    config.Enabled = false
-                end
-            end
-            
-            st.autoSupplyCollect = false
-            st.autoScrapCollect = false
-            st.autoHealSelf = false
-            st.autoHealPlayers = false
-            
-            notify("🛡️ PROTECTION", "Admin detected! Features temporarily disabled for safety.", 5)
-        end
-    end
-
-    -- ========== PROTECTION MAIN LOOP ==========
-    local function runProtectionLoop()
-        local currentTime = tick()
-        if currentTime - Protection.lastCheck >= Protection.checkInterval then
-            Protection.lastCheck = currentTime
-            
-            pcall(detectAdmins)
-            pcall(bypassAntiCheat)
-            pcall(spoofRemoteEvents)
-            pcall(hideExploitSigns)
-            pcall(autoDisableOnAdmin)
-            
-            if not Protection.enabled then
-                Protection.enabled = true
-                notify("🛡️ PROTECTION", "Protection system re-enabled.", 3)
-            end
-        end
-    end
-
-    -- ========== DETECTION FUNCTIONS ==========
+    -- ========== DETECTION ==========
     local function getScrapRoot()
         local filter = Workspace:FindFirstChild("Filter")
         return filter and filter:FindFirstChild("ScrapSpawns") or nil
@@ -554,8 +292,9 @@ if game.GameId == 847722000 then
                     return true
                 end
             end
-            return false
+            return true
         end
+        
         return false
     end
 
@@ -734,46 +473,6 @@ if game.GameId == 847722000 then
         return (root.Position - position).Magnitude
     end
 
-    -- ========== ENHANCED ESP FUNCTIONS ==========
-    function ESP:AddSupplyDrop(drop)
-        if not drop or ESP.Highlights[drop] then return end
-        self:AddESP(drop, "SupplyDrop", "Supply Drop")
-    end
-
-    function ESP:AddRakeTrap(trap)
-        if not trap or ESP.Highlights[trap] then return end
-        self:AddESP(trap, "RakeTrap", "Rake Trap")
-    end
-
-    function ESP:AddScrapEnhanced(scrap)
-        if not scrap or ESP.Highlights[scrap] then return end
-        self:AddESP(scrap, "Scrap", "Scrap")
-    end
-
-    function ESP:CleanupEnhanced(kind)
-        if not kind or kind == "drops" then
-            for obj in pairs(self.Highlights) do
-                if isSupplyDrop(obj) then
-                    self:RemoveESP(obj)
-                end
-            end
-        end
-        if not kind or kind == "traps" then
-            for obj in pairs(self.Highlights) do
-                if isRakeTrap(obj) then
-                    self:RemoveESP(obj)
-                end
-            end
-        end
-        if not kind or kind == "scraps" then
-            for obj in pairs(self.Highlights) do
-                if isCollectibleScrap(obj) then
-                    self:RemoveESP(obj)
-                end
-            end
-        end
-    end
-
     -- ========== LOCATION ESP ==========
     function ESP:CreateLocationMarker(locationData)
         local marker = Instance.new("Part")
@@ -832,26 +531,6 @@ if game.GameId == 847722000 then
         end
     end
 
-    function ESP:UpdateLocationText()
-        for _, markerEntry in ipairs(self.LocationMarkers) do
-            if markerEntry.Marker and markerEntry.Marker.Parent then
-                local pos = markerEntry.LocationData.Position
-                local dist = self:getDistanceFromPlayer(pos)
-                
-                local text = markerEntry.LocationData.Name
-                if dist and st.espShowDistance then
-                    if dist >= 1000 then
-                        text = string.format("%s | %.2f km", markerEntry.LocationData.Name, dist / 1000)
-                    else
-                        text = string.format("%s | %.0f m", markerEntry.LocationData.Name, dist)
-                    end
-                end
-                
-                markerEntry.Label.Text = text
-            end
-        end
-    end
-
     -- ========== UPDATE FUNCTIONS ==========
     local UPDATE_INTERVAL = 0.5
     local OBJECT_SCAN_INTERVAL = 1.0
@@ -896,12 +575,10 @@ if game.GameId == 847722000 then
             if root then
                 for _, obj in ipairs(root:GetChildren()) do
                     if isSupplyDrop(obj) and not ESP.Highlights[obj] then
-                        ESP:AddSupplyDrop(obj)
+                        ESP:AddESP(obj, "SupplyDrop", "Supply Drop")
                     end
                 end
             end
-        else
-            ESP:CleanupEnhanced("drops")
         end
 
         if ESPConfig.RakeTrap.Enabled then
@@ -909,12 +586,10 @@ if game.GameId == 847722000 then
             if root then
                 for _, obj in ipairs(root:GetChildren()) do
                     if isRakeTrap(obj) and not ESP.Highlights[obj] then
-                        ESP:AddRakeTrap(obj)
+                        ESP:AddESP(obj, "RakeTrap", "Rake Trap")
                     end
                 end
             end
-        else
-            ESP:CleanupEnhanced("traps")
         end
         
         local toRemove = {}
@@ -967,6 +642,26 @@ if game.GameId == 847722000 then
             ESP:UpdateTextEntry(entry)
         end
         ESP:UpdateLocationText()
+    end
+
+    function ESP:UpdateLocationText()
+        for _, markerEntry in ipairs(self.LocationMarkers) do
+            if markerEntry.Marker and markerEntry.Marker.Parent then
+                local pos = markerEntry.LocationData.Position
+                local dist = self:getDistanceFromPlayer(pos)
+                
+                local text = markerEntry.LocationData.Name
+                if dist and st.espShowDistance then
+                    if dist >= 1000 then
+                        text = string.format("%s | %.2f km", markerEntry.LocationData.Name, dist / 1000)
+                    else
+                        text = string.format("%s | %.0f m", markerEntry.LocationData.Name, dist)
+                    end
+                end
+                
+                markerEntry.Label.Text = text
+            end
+        end
     end
 
     -- ========== MAIN LOOP ==========
@@ -1349,18 +1044,29 @@ if game.GameId == 847722000 then
 
     -- ========== WALKSPEED ==========
     function applyWalkSpeed()
-        if st.walkspeedOn ~= true then return end
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
         if not hum or not hum.Parent then return end
-        local spd = math.clamp(tonumber(st.walkspeed) or 16, 0, 30.5)
-        pcall(function()
-            if hum.WalkSpeed ~= spd then
-                hum.WalkSpeed = spd
-            end
-            if hum.UseJumpPower ~= false then
-                hum.JumpPower = 50
-            end
-        end)
+        
+        if st.walkspeedOn == true then
+            local spd = math.clamp(tonumber(st.walkspeed) or 16, 0, 30.5)
+            pcall(function()
+                if hum.WalkSpeed ~= spd then
+                    hum.WalkSpeed = spd
+                end
+                if hum.UseJumpPower ~= false then
+                    hum.JumpPower = 50
+                end
+            end)
+        else
+            pcall(function()
+                if hum.WalkSpeed ~= 16 then
+                    hum.WalkSpeed = 16
+                end
+                if hum.UseJumpPower ~= false then
+                    hum.JumpPower = 50
+                end
+            end)
+        end
     end
 
     -- ========== THIRD PERSON ==========
@@ -1512,128 +1218,117 @@ if game.GameId == 847722000 then
         return false
     end
 
-    -- ========== RAKE KILLAURA ==========
-    local auraT = 0
-    local aura = { rk = nil, rr = nil, rh = nil, stick = nil, ev = nil, hp = nil }
-    function auraClearRake() aura.rk = nil; aura.rr = nil; aura.rh = nil end
-    function auraClearStick() aura.stick = nil; aura.ev = nil; aura.hp = nil end
-    function auraIsStick(v)
-        if not (v and v:IsA("Tool")) then return false end
-        local n = string.lower(v.Name)
-        return n == "stunstick" or (string.find(n, "stun",1,true) and string.find(n, "stick",1,true)) ~= nil
-    end
-    function auraGetRake()
-        local rk = aura.rk
-        if not (rk and rk.Parent) then
-            rk = Workspace:FindFirstChild("Rake", true)
-            aura.rk = rk
-            aura.rr = nil
-            aura.rh = nil
+    -- ========== POWER RESTORATION WITH TELEPORT ==========
+    local powerRepairBusy = false
+    local POWER_STATION_POSITION = Vector3.new(-285, 19, -210)
+    
+    function teleportToPowerStation()
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not root then
+            notify("Error", "Character not found!", 2)
+            return false
         end
-        if not rk then return nil end
-        local rh = aura.rh
-        if not (rh and rh.Parent) then
-            rh = rk:FindFirstChild("Monster") or rk:FindFirstChildWhichIsA("Humanoid")
-            aura.rh = rh
-        end
-        if rh and rh.Health and rh.Health <= 0 then return nil end
-        local rr = aura.rr
-        if not (rr and rr.Parent) then
-            rr = rk:FindFirstChild("HumanoidRootPart") or rk:FindFirstChild("HumanoidRootPart", true)
-            aura.rr = rr
-        end
-        if not rr then return nil end
-        return rk, rr, rh
-    end
-    function auraGetPart(rk, rr, pos)
-        local best = rr
-        local bd = rr and (rr.Position - pos).Magnitude or math.huge
-        local names = { "Head", "Torso", "UpperTorso", "LowerTorso", "HumanoidRootPart" }
-        for i = 1, #names do
-            local v = rk:FindFirstChild(names[i])
-            if v and v:IsA("BasePart") then
-                local d = (v.Position - pos).Magnitude
-                if d < bd then
-                    best = v
-                    bd = d
-                end
-            end
-        end
-        return best
-    end
-    function auraGetStick()
-        local ch = LocalPlayer.Character
-        if not ch then return nil end
-        local s = aura.stick
-        if not (s and s.Parent) then
-            s = nil
-            for _, v in ipairs(ch:GetChildren()) do
-                if auraIsStick(v) then
-                    s = v
-                    break
-                end
-            end
-            if s and st.rakeAuraAutoEquip == true then
-                local hum = ch:FindFirstChild("Humanoid")
-                if hum then
-                    pcall(function() hum:EquipTool(s) end)
-                end
-                return nil
-            end
-            aura.stick = s
-            aura.ev = nil
-            aura.hp = nil
-        end
-        if not (s and s.Parent == ch) then
-            if s and st.rakeAuraAutoEquip == true then
-                local hum = ch:FindFirstChild("Humanoid")
-                if hum then
-                    pcall(function() hum:EquipTool(s) end)
-                end
-                auraClearStick()
-            end
-            return nil
-        end
-        local ev = aura.ev
-        if not (ev and ev.Parent) then
-            ev = s:FindFirstChild("Event") or s:FindFirstChild("Event", true)
-            aura.ev = ev
-        end
-        local hp = aura.hp
-        if not (hp and hp.Parent) then
-            hp = s:FindFirstChild("HitPart") or s:FindFirstChild("HitPart", true)
-            aura.hp = hp
-        end
-        return s, ev, hp
-    end
-    function auraHasPower()
-        local p = ReplicatedStorage:FindFirstChild("StationPower")
-        if p and p.Value ~= true then return false end
+        
+        root.CFrame = CFrame.new(POWER_STATION_POSITION + Vector3.new(0, 5, 0))
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        
+        notify("Teleport", "Teleported to Power Station!", 2)
         return true
     end
-    function auraHasStamina()
-        if st.infStamina == true then return true end
-        local g = ReplicatedStorage:FindFirstChild("GSTMNA")
-        if not g then return true end
-        local ok, val = pcall(function() return g:Invoke() end)
-        return not ok or not val or val >= 12
-    end
-    function auraTakeStamina()
-        if st.infStamina == true then return end
-        local tks = ReplicatedStorage:FindFirstChild("TKSMNA")
-        if tks then
-            pcall(function() tks:Fire(12) end)
+    
+    function repairPowerStation()
+        if powerRepairBusy == true then 
+            notify("Power Station", "Repair already in progress!", 2)
+            return false, "busy" 
+        end
+        
+        local map = Workspace:FindFirstChild("Map")
+        local powerStation = map and map:FindFirstChild("PowerStation")
+        local station = powerStation and powerStation:FindFirstChild("StationFolder")
+        local guiPart = station and station:FindFirstChild("StationGUIPart")
+        local prompt = guiPart and guiPart:FindFirstChildWhichIsA("ProximityPrompt")
+        local ev = station and station:FindFirstChild("RemoteEvent")
+        local progress = station and station:FindFirstChild("Progress")
+        local stationPower = ReplicatedStorage:FindFirstChild("StationPower")
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+        
+        if not (station and guiPart and prompt and ev and root and hum) then
+            notify("Error", "Power station components not found!", 3)
+            return false, "missing"
+        end
+        
+        if stationPower and stationPower.Value == true then
+            notify("Power Station", "Power is already online!", 2)
+            return true, "powered"
+        end
+        
+        if st.teleportToPower then
+            teleportToPowerStation()
+            task.wait(0.5)
+        end
+        
+        powerRepairBusy = true
+        local oldCf = root.CFrame
+        local oldAnchored = root.Anchored
+        
+        notify("Power Station", "Starting power restoration...", 2)
+        
+        local ok, result = pcall(function()
+            -- Use direct StationStart as requested
+            ev:FireServer("StationStart")
+            
+            local activate = tonumber(prompt:GetAttribute("ActivateTime")) or 30
+            local deadline = time() + math.max(activate + 8, 35)
+            local success = false
+            
+            local maxWait = st.stayUntilPowered and 120 or 45
+            local waitDeadline = time() + maxWait
+            
+            while root.Parent and time() < deadline and time() < waitDeadline do
+                if stationPower and stationPower.Value == true then
+                    success = true
+                    break
+                end
+                if progress and tonumber(progress.Value) and progress.Value >= 100 then
+                    success = true
+                    break
+                end
+                task.wait(0.25)
+            end
+            
+            if not success then
+                pcall(function() ev:FireServer("StationCancel") end)
+            end
+            
+            return success
+        end)
+        
+        pcall(function()
+            root.Anchored = oldAnchored
+            root.CFrame = oldCf
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end)
+        
+        powerRepairBusy = false
+        
+        if ok and result == true then
+            notify("✅ Power Station", "Power restoration completed successfully!", 3)
+            return true, "done"
+        else
+            notify("❌ Power Station", "Power restoration failed or timed out!", 3)
+            return false, "timeout"
         end
     end
-    function auraPrepHitpart(hp)
-        if not hp then return end
-        pcall(function() hp.CanTouch = true; hp.CanQuery = true end)
-    end
-    function auraSwing(ev, hit)
-        if not (ev and hit) then return end
-        pcall(function() ev:FireServer("S") end)
-        auraTakeStamina()
-        pcall(function() ev:FireServer("H", hit) end)
+    
+    function autoRestorePower()
+        if st.autoPowerRestore ~= true or powerRepairBusy == true then return false end
+        local stationPower = ReplicatedStorage:FindFirstChild("StationPower")
+        if not stationPower or stationPower.Value == true then return false end
+        task.spawn(function() repairPowerStation() end)
+        return true
     end
 
     -- ========== BRING ITEMS ==========
@@ -1645,9 +1340,6 @@ if game.GameId == 847722000 then
         end
         
         local count = 0
-        local filter = Workspace:FindFirstChild("Filter")
-        local root = filter and filter:FindFirstChild("ScrapSpawns") or Workspace
-        
         local function isInCharacter(obj)
             for _, plr in ipairs(Players:GetPlayers()) do
                 local ch = plr.Character
@@ -1676,7 +1368,7 @@ if game.GameId == 847722000 then
         local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
         if not head then
             notify("Error", "Character or Head not found!", 2)
-            return 0
+            return false
         end
         
         local flaregun = nil
@@ -1687,29 +1379,46 @@ if game.GameId == 847722000 then
             end
         end
         
-        if flaregun then
-            pcall(function()
-                if flaregun:IsA("BasePart") then
-                    flaregun.Anchored = false
-                    flaregun.CFrame = head.CFrame * CFrame.new(0, 1.5, 0)
-                    flaregun.AssemblyLinearVelocity = Vector3.zero
-                    flaregun.AssemblyAngularVelocity = Vector3.zero
-                elseif flaregun:IsA("Model") then
-                    local primary = flaregun.PrimaryPart or flaregun:FindFirstChildWhichIsA("BasePart", true)
-                    if primary then
-                        primary.Anchored = false
-                        primary.CFrame = head.CFrame * CFrame.new(0, 1.5, 0)
-                        primary.AssemblyLinearVelocity = Vector3.zero
-                        primary.AssemblyAngularVelocity = Vector3.zero
-                    else
-                        flaregun:PivotTo(head.CFrame * CFrame.new(0, 1.5, 0))
-                    end
-                end
-            end)
-            return 1
+        if not flaregun then
+            notify("Flaregun", "No flaregun found!", 2)
+            return false
         end
         
-        return 0
+        local success = false
+        pcall(function()
+            local targetPart = flaregun
+            if flaregun:IsA("Model") then
+                local primary = flaregun.PrimaryPart
+                if not primary then
+                    primary = flaregun:FindFirstChildWhichIsA("BasePart")
+                end
+                if primary then
+                    targetPart = primary
+                end
+            end
+            
+            if targetPart and targetPart:IsA("BasePart") then
+                -- Spawn above head like scrap does
+                local newPos = head.Position + Vector3.new(0, 2, 0)
+                targetPart.CFrame = CFrame.new(newPos)
+                targetPart.AssemblyLinearVelocity = Vector3.zero
+                targetPart.AssemblyAngularVelocity = Vector3.zero
+                
+                if flaregun:IsA("Model") then
+                    local offset = targetPart.CFrame - flaregun:GetPivot()
+                    flaregun:PivotTo(CFrame.new(newPos) * offset)
+                end
+                success = true
+            end
+        end)
+        
+        if success then
+            notify("✅ Flaregun", "Brought flaregun to you!", 2)
+            return true
+        else
+            notify("❌ Flaregun", "Failed to bring flaregun!", 2)
+            return false
+        end
     end
 
     -- ========== AUTO COLLECT ==========
@@ -1769,9 +1478,6 @@ if game.GameId == 847722000 then
             if not (hrp and hum) then return end
             
             local oldCf = hrp.CFrame
-            local backpack = LocalPlayer:FindFirstChild("Backpack")
-            local scrapFolder = backpack and backpack:FindFirstChild("ScrapFolder")
-            local points = scrapFolder and scrapFolder:FindFirstChild("Points")
             
             for _, scrap in ipairs(root:GetDescendants()) do
                 if isCollectibleScrap(scrap) then
@@ -1967,7 +1673,7 @@ if game.GameId == 847722000 then
         bloodHourCheckT = 0
         local bh = ReplicatedStorage:FindFirstChild("InitiateBloodHour")
         if bh and bh.Value == true then
-            notify("🌕 ALERT", "HOLY JESUS BLOOD HOUR IS COMING NOW", 5)
+            notify("🌕 ALERT", "HOLY JESUS BLOOD HOUR IS COMING NOW", 5, false)
             bh.Value = false
         end
     end)
@@ -1989,7 +1695,7 @@ if game.GameId == 847722000 then
         end
         self.notifiedScraps[id] = true
         self.lastNotification = time()
-        notify("🔧 Scrap Spawned!", "A scrap has appeared!", 3)
+        notify("🔧 Scrap Spawned!", "A scrap has appeared!", 3, true)
         task.delay(60, function() self.notifiedScraps[id] = nil end)
     end
     function SpawnNotifier:notifyFlaregun(flaregun)
@@ -2001,7 +1707,7 @@ if game.GameId == 847722000 then
         end
         self.notifiedFlareguns[id] = true
         self.lastNotification = time()
-        notify("🔫 Flaregun Spawned!", "A flaregun has appeared!", 3)
+        notify("🔫 Flaregun Spawned!", "A flaregun has appeared!", 3, true)
         task.delay(60, function() self.notifiedFlareguns[id] = nil end)
     end
     function SpawnNotifier:startListening()
@@ -2036,16 +1742,183 @@ if game.GameId == 847722000 then
         end)
     end
 
-    -- ========== UI ==========
-    -- ESP Tab
+    -- ========== KILL AURA SYSTEM ==========
+    local auraT = 0
+    local aura = {
+        rk = nil,
+        rr = nil,
+        rh = nil,
+        stick = nil,
+        ev = nil,
+        hp = nil,
+        bp = nil,
+    }
+
+    function auraClearRake()
+        aura.rk = nil
+        aura.rr = nil
+        aura.rh = nil
+    end
+
+    function auraClearStick()
+        aura.stick = nil
+        aura.ev = nil
+        aura.hp = nil
+    end
+
+    function auraIsStick(v)
+        if not (v and v:IsA("Tool")) then return false end
+        local n = string.lower(v.Name)
+        return n == "stunstick" or (string.find(n, "stun", 1, true) and string.find(n, "stick", 1, true)) ~= nil
+    end
+
+    function auraGetRake()
+        local rk = aura.rk
+        if not (rk and rk.Parent) then
+            rk = Workspace:FindFirstChild("Rake")
+            aura.rk = rk
+            aura.rr = nil
+            aura.rh = nil
+        end
+        if not rk then return nil end
+        local rh = aura.rh
+        if not (rh and rh.Parent) then
+            rh = rk:FindFirstChild("Monster") or rk:FindFirstChildWhichIsA("Humanoid")
+            aura.rh = rh
+        end
+        if rh and rh.Health and rh.Health <= 0 then return nil end
+        local rr = aura.rr
+        if not (rr and rr.Parent) then
+            rr = rk:FindFirstChild("HumanoidRootPart") or rk:FindFirstChild("HumanoidRootPart", true)
+            aura.rr = rr
+        end
+        if not rr then return nil end
+        return rk, rr, rh
+    end
+
+    function auraGetPart(rk, rr, pos)
+        local best = rr
+        local bd = rr and (rr.Position - pos).Magnitude or math.huge
+        local names = { "Head", "Torso", "UpperTorso", "LowerTorso", "HumanoidRootPart" }
+        for i = 1, #names do
+            local v = rk:FindFirstChild(names[i])
+            if v and v:IsA("BasePart") then
+                local d = (v.Position - pos).Magnitude
+                if d < bd then
+                    best = v
+                    bd = d
+                end
+            end
+        end
+        return best
+    end
+
+    function auraGetStick()
+        local ch = LocalPlayer.Character
+        if not ch then return nil end
+        local s = aura.stick
+        if not (s and s.Parent) then
+            s = nil
+            for _, v in ipairs(ch:GetChildren()) do
+                if auraIsStick(v) then
+                    s = v
+                    break
+                end
+            end
+            if not s then
+                local bp = aura.bp
+                if not (bp and bp.Parent) then
+                    bp = LocalPlayer:FindFirstChild("Backpack") or nil
+                    aura.bp = bp
+                end
+                if bp then
+                    for _, v in ipairs(bp:GetChildren()) do
+                        if auraIsStick(v) then
+                            s = v
+                            break
+                        end
+                    end
+                end
+                if s and st.rakeAuraAutoEquip == true then
+                    local hum = ch:FindFirstChildWhichIsA("Humanoid")
+                    if hum then
+                        pcall(function() hum:EquipTool(s) end)
+                    end
+                    return nil
+                end
+            end
+            aura.stick = s
+            aura.ev = nil
+            aura.hp = nil
+        end
+        if not (s and s.Parent == ch) then
+            if s and st.rakeAuraAutoEquip == true then
+                local hum = ch:FindFirstChildWhichIsA("Humanoid")
+                if hum then
+                    pcall(function() hum:EquipTool(s) end)
+                end
+                auraClearStick()
+            end
+            return nil
+        end
+        local ev = aura.ev
+        if not (ev and ev.Parent) then
+            ev = s:FindFirstChild("Event") or s:FindFirstChild("Event", true)
+            aura.ev = ev
+        end
+        local hp = aura.hp
+        if not (hp and hp.Parent) then
+            hp = s:FindFirstChild("HitPart") or s:FindFirstChild("HitPart", true)
+            aura.hp = hp
+        end
+        return s, ev, hp
+    end
+
+    function auraHasPower()
+        local p = ReplicatedStorage:FindFirstChild("StationPower")
+        if p and p.Value ~= true then return false end
+        return true
+    end
+
+    function auraHasStamina()
+        if st.infStamina == true then return true end
+        local g = ReplicatedStorage:FindFirstChild("GSTMNA")
+        if not g then return true end
+        local ok, val = pcall(function() return g:Invoke() end)
+        return not ok or not val or val >= 12
+    end
+
+    function auraTakeStamina()
+        if st.infStamina == true then return end
+        local tks = ReplicatedStorage:FindFirstChild("TKSMNA")
+        if tks then
+            pcall(function() tks:Fire(12) end)
+        end
+    end
+
+    function auraPrepHitpart(hp)
+        if not hp then return end
+        pcall(function()
+            hp.CanTouch = true
+            hp.CanQuery = true
+        end)
+    end
+
+    function auraSwing(ev, hit)
+        if not (ev and hit) then return end
+        pcall(function() ev:FireServer("S") end)
+        auraTakeStamina()
+        pcall(function() ev:FireServer("H", hit) end)
+    end
+
+    -- ========== UI - ESP TAB ==========
     espTab:CreateSection({ name = "ESP Toggles" })
     
     espTab:CreateToggle({
         name = "ESP Players (White)",
-        currentValue = ESPConfig.Players.Enabled,
+        flag = "ESP_Players",
         callback = function(Value)
             ESPConfig.Players.Enabled = Value
-            cfgSet("ESP_Players", Value)
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character then
                     if Value then
@@ -2060,10 +1933,9 @@ if game.GameId == 847722000 then
 
     espTab:CreateToggle({
         name = "ESP Rake (Red)",
-        currentValue = ESPConfig.Rake.Enabled,
+        flag = "ESP_Rake",
         callback = function(Value)
             ESPConfig.Rake.Enabled = Value
-            cfgSet("ESP_Rake", Value)
             local rake = Workspace:FindFirstChild("Rake", true)
             if rake then
                 if Value then
@@ -2076,11 +1948,10 @@ if game.GameId == 847722000 then
     })
 
     espTab:CreateToggle({
-        name = "ESP Flare Gun (Yellow) - REAL only",
-        currentValue = ESPConfig.FlareGun.Enabled,
+        name = "ESP Flare Gun (Yellow)",
+        flag = "ESP_FlareGun",
         callback = function(Value)
             ESPConfig.FlareGun.Enabled = Value
-            cfgSet("ESP_FlareGun", Value)
             if not Value then
                 local toRemove = {}
                 for object, highlight in pairs(ESP.Highlights) do
@@ -2097,10 +1968,9 @@ if game.GameId == 847722000 then
 
     espTab:CreateToggle({
         name = "ESP Scrap (Brown)",
-        currentValue = ESPConfig.Scrap.Enabled,
+        flag = "ESP_Scrap",
         callback = function(Value)
             ESPConfig.Scrap.Enabled = Value
-            cfgSet("ESP_Scrap", Value)
             if not Value then
                 local toRemove = {}
                 for object, highlight in pairs(ESP.Highlights) do
@@ -2117,35 +1987,26 @@ if game.GameId == 847722000 then
 
     espTab:CreateToggle({
         name = "ESP Locations (Fixed Colors)",
-        currentValue = ESPConfig.Locations.Enabled,
+        flag = "ESP_Locations",
         callback = function(Value)
             ESPConfig.Locations.Enabled = Value
-            cfgSet("ESP_Locations", Value)
             ESP:UpdateLocationMarkers()
         end
     })
 
     espTab:CreateToggle({
         name = "ESP Supply Drops (Yellow)",
-        currentValue = ESPConfig.SupplyDrop.Enabled,
+        flag = "supplyDropESP",
         callback = function(Value)
             ESPConfig.SupplyDrop.Enabled = Value
-            cfgSet("supplyDropESP", Value)
-            if not Value then
-                ESP:CleanupEnhanced("drops")
-            end
         end
     })
 
     espTab:CreateToggle({
         name = "ESP Rake Traps (Orange)",
-        currentValue = ESPConfig.RakeTrap.Enabled,
+        flag = "rakeTrapESP",
         callback = function(Value)
             ESPConfig.RakeTrap.Enabled = Value
-            cfgSet("rakeTrapESP", Value)
-            if not Value then
-                ESP:CleanupEnhanced("traps")
-            end
         end
     })
 
@@ -2153,135 +2014,107 @@ if game.GameId == 847722000 then
     
     espTab:CreateSlider({
         name = "ESP Text Size",
+        flag = "espTextSize",
         min = 8,
         max = 24,
         default = st.espTextSize,
         callback = function(Value)
             st.espTextSize = math.clamp(Value, 8, 24)
-            cfgSet("espTextSize", st.espTextSize)
-        end
-    })
-
-    espTab:CreateSlider({
-        name = "ESP Max Distance (meters)",
-        min = 100,
-        max = 10000,
-        default = st.espMaxDistance,
-        callback = function(Value)
-            st.espMaxDistance = math.clamp(Value, 100, 10000)
-            cfgSet("espMaxDistance", st.espMaxDistance)
         end
     })
 
     espTab:CreateToggle({
         name = "Show Distance",
-        currentValue = st.espShowDistance,
+        flag = "espShowDistance",
         callback = function(Value)
             st.espShowDistance = Value
-            cfgSet("espShowDistance", Value)
-        end
-    })
-
-    espTab:CreateToggle({
-        name = "ESP Highlights",
-        currentValue = st.espChams,
-        callback = function(Value)
-            st.espChams = Value
-            cfgSet("espChams", Value)
         end
     })
 
     espTab:CreateToggle({
         name = "Auto Supply Collect",
-        currentValue = st.autoSupplyCollect,
+        flag = "autoSupplyCollect",
         callback = function(Value)
             st.autoSupplyCollect = Value
-            cfgSet("autoSupplyCollect", Value)
         end
     })
 
     espTab:CreateToggle({
         name = "Auto Scrap Collect",
-        currentValue = st.autoScrapCollect,
+        flag = "autoScrapCollect",
         callback = function(Value)
             st.autoScrapCollect = Value
-            cfgSet("autoScrapCollect", Value)
         end
     })
 
     espTab:CreateToggle({
         name = "Prompt Bypass",
-        currentValue = st.promptBypass,
+        flag = "promptBypass",
         callback = function(Value)
             st.promptBypass = Value
-            cfgSet("promptBypass", Value)
             if Value then applyPromptBypass() end
         end
     })
 
     espTab:CreateSlider({
         name = "Prompt Distance",
+        flag = "promptDistance",
         min = 5,
         max = 100,
         default = st.promptDistance,
         callback = function(Value)
             st.promptDistance = math.clamp(Value, 5, 100)
-            cfgSet("promptDistance", st.promptDistance)
             if st.promptBypass then applyPromptBypass() end
         end
     })
 
-    -- Visuals Tab
+    -- ========== UI - VISUALS TAB ==========
     visualTab:CreateSection({ name = "Visual Settings" })
     
     visualTab:CreateToggle({
         name = "Fullbright",
-        currentValue = st.fullbright,
+        flag = "fullbright",
         callback = function(value)
             st.fullbright = value
-            cfgSet("fullbright", value)
             applyFullbright()
         end
     })
 
     visualTab:CreateToggle({
         name = "No Fog",
-        currentValue = st.noFog,
+        flag = "noFog",
         callback = function(value)
             st.noFog = value
-            cfgSet("noFog", value)
             applyNoFog()
         end
     })
 
     visualTab:CreateToggle({
         name = "Disable Shadows",
-        currentValue = st.disableShadows,
+        flag = "disableShadows",
         callback = function(value)
             st.disableShadows = value
-            cfgSet("disableShadows", value)
             applyDisableShadows()
         end
     })
 
     visualTab:CreateSlider({
         name = "Field of View (FOV)",
+        flag = "fov",
         min = 1,
         max = 120,
         default = st.fov,
         callback = function(value)
             st.fov = math.clamp(value, 1, 120)
-            cfgSet("fov", st.fov)
             if st.fovOn then applyFov() end
         end
     })
 
     visualTab:CreateToggle({
         name = "Toggle FOV",
-        currentValue = st.fovOn,
+        flag = "fovOn",
         callback = function(value)
             st.fovOn = value
-            cfgSet("fovOn", value)
             if value then
                 bindFovCam(workspace.CurrentCamera)
             else
@@ -2296,86 +2129,77 @@ if game.GameId == 847722000 then
 
     visualTab:CreateToggle({
         name = "Unlock Third Person",
-        currentValue = st.unlockThirdPerson,
+        flag = "unlockThirdPerson",
         callback = function(value)
             st.unlockThirdPerson = value
-            cfgSet("unlockThirdPerson", value)
             applyThirdPerson()
         end
     })
 
     visualTab:CreateToggle({
         name = "Info Bubble",
-        currentValue = st.infoBubble,
+        flag = "infoBubble",
         callback = function(value)
             st.infoBubble = value
-            cfgSet("infoBubble", value)
             setBubbleVisible(value)
             if value then syncBubble() end
         end
     })
 
-    -- Player Tab
+    -- ========== UI - PLAYER TAB ==========
     playerTab:CreateSection({ name = "Player Settings" })
     
     playerTab:CreateSlider({
         name = "Min Zoom",
+        flag = "minZoom",
         min = 0.5,
         max = 100,
         default = st.minZoom,
         callback = function(value)
             st.minZoom = math.max(0.5, value)
             if st.maxZoom < st.minZoom then st.maxZoom = st.minZoom end
-            cfgSet("minZoom", st.minZoom)
-            cfgSet("maxZoom", st.maxZoom)
             applyZoom()
         end
     })
 
     playerTab:CreateSlider({
         name = "Max Zoom",
+        flag = "maxZoom",
         min = 0.5,
         max = 1000,
         default = st.maxZoom,
         callback = function(value)
             st.maxZoom = math.max(value, st.minZoom)
-            cfgSet("maxZoom", st.maxZoom)
             applyZoom()
         end
     })
 
     playerTab:CreateSlider({
         name = "WalkSpeed",
+        flag = "walkspeed",
         min = 0,
         max = 30.5,
         default = st.walkspeed,
         callback = function(value)
             st.walkspeed = math.clamp(value, 0, 30.5)
-            cfgSet("walkspeed", st.walkspeed)
             if st.walkspeedOn then applyWalkSpeed() end
         end
     })
 
     playerTab:CreateToggle({
         name = "Toggle WalkSpeed",
-        currentValue = st.walkspeedOn,
+        flag = "walkspeedOn",
         callback = function(value)
             st.walkspeedOn = value
-            cfgSet("walkspeedOn", value)
-            if value then applyWalkSpeed()
-            else
-                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-                if hum then pcall(function() hum.WalkSpeed = 16 end) end
-            end
+            applyWalkSpeed()
         end
     })
 
     playerTab:CreateToggle({
         name = "Infinite Stamina",
-        currentValue = st.infStamina,
+        flag = "infStamina",
         callback = function(value)
             st.infStamina = value
-            cfgSet("infStamina", value)
             if value then
                 applyInfTabs()
                 task.spawn(function()
@@ -2390,146 +2214,125 @@ if game.GameId == 847722000 then
 
     playerTab:CreateToggle({
         name = "No Fall Damage",
-        currentValue = st.noFall,
+        flag = "noFall",
         callback = function(value)
             st.noFall = value
-            cfgSet("noFall", value)
             applyNoFall()
         end
     })
 
     playerTab:CreateToggle({
         name = "Auto Heal Self",
-        currentValue = st.autoHealSelf,
+        flag = "autoHealSelf",
         callback = function(value)
             st.autoHealSelf = value
-            cfgSet("autoHealSelf", value)
         end
     })
 
     playerTab:CreateSlider({
         name = "Self Heal Below %",
+        flag = "healSelfAt",
         min = 1,
         max = 100,
         default = st.healSelfAt,
         callback = function(value)
             st.healSelfAt = math.clamp(value, 1, 100)
-            cfgSet("healSelfAt", st.healSelfAt)
         end
     })
 
     playerTab:CreateToggle({
         name = "Auto Heal Players",
-        currentValue = st.autoHealPlayers,
+        flag = "autoHealPlayers",
         callback = function(value)
             st.autoHealPlayers = value
-            cfgSet("autoHealPlayers", value)
         end
     })
 
     playerTab:CreateSlider({
         name = "Player Heal Below %",
+        flag = "healPlayerAt",
         min = 1,
         max = 100,
         default = st.healPlayerAt,
         callback = function(value)
             st.healPlayerAt = math.clamp(value, 1, 100)
-            cfgSet("healPlayerAt", st.healPlayerAt)
         end
     })
 
     playerTab:CreateToggle({
         name = "Auto Equip FirstAid",
-        currentValue = st.healAutoEquip,
+        flag = "healAutoEquip",
         callback = function(value)
             st.healAutoEquip = value
-            cfgSet("healAutoEquip", value)
         end
     })
 
-    -- Exploits Tab
-    exploitTab:CreateSection({ name = "Bring Items" })
+    -- ========== UI - EXPLOITS TAB ==========
+    exploitTab:CreateSection({ name = "Bring Items (Spawns on Head)" })
     
     exploitTab:CreateButton({
         name = "Bring Scraps",
         callback = function()
             local count = bringScraps()
-            notify("Scraps", "Brought " .. count .. " scrap" .. (count == 1 and "" or "s"), 3)
+            notify("Scraps", "Brought " .. count .. " scrap" .. (count == 1 and "" or "s"), 3, true)
         end
     })
 
     exploitTab:CreateButton({
-        name = "Bring Flaregun (Fixed)",
+        name = "Bring Flaregun",
         callback = function()
-            local count = bringFlaregun()
-            notify("Flaregun", count > 0 and "Brought flaregun!" or "No REAL flaregun found!", 3)
+            bringFlaregun()
         end
     })
 
-    exploitTab:CreateSection({ name = "Auto Collect" })
+    exploitTab:CreateSection({ name = "Power Restoration" })
     
-    exploitTab:CreateToggle({
-        name = "Auto Supply Collect",
-        currentValue = st.autoSupplyCollect,
-        callback = function(Value)
-            st.autoSupplyCollect = Value
-            cfgSet("autoSupplyCollect", Value)
+    exploitTab:CreateButton({
+        name = "Teleport to Power Station",
+        callback = function()
+            teleportToPowerStation()
         end
     })
-
-    exploitTab:CreateToggle({
-        name = "Auto Scrap Collect",
-        currentValue = st.autoScrapCollect,
-        callback = function(Value)
-            st.autoScrapCollect = Value
-            cfgSet("autoScrapCollect", Value)
-        end
-    })
-
-    exploitTab:CreateSection({ name = "Killaura" })
     
-    exploitTab:CreateToggle({
-        name = "Rake Killaura",
-        currentValue = st.rakeAura,
-        callback = function(value)
-            st.rakeAura = value
-            cfgSet("rakeAura", value)
-            if value then
-                notify("⚔️ KILLAURA", "Killaura enabled - Protection active", 3)
-            else
-                notify("⚔️ KILLAURA", "Killaura disabled", 2)
-            end
-        end
-    })
-
-    exploitTab:CreateSlider({
-        name = "Killaura Range",
-        min = 6,
-        max = 30,
-        default = st.rakeAuraRange,
-        callback = function(value)
-            st.rakeAuraRange = math.clamp(value, 6, 30)
-            cfgSet("rakeAuraRange", st.rakeAuraRange)
-        end
-    })
-
-    exploitTab:CreateSlider({
-        name = "Killaura Delay",
-        min = 0.05,
-        max = 0.6,
-        default = st.rakeAuraDelay,
-        callback = function(value)
-            st.rakeAuraDelay = math.clamp(value, 0.05, 0.6)
-            cfgSet("rakeAuraDelay", st.rakeAuraDelay)
+    exploitTab:CreateButton({
+        name = "Restore Power Now",
+        callback = function()
+            task.spawn(function()
+                repairPowerStation()
+            end)
         end
     })
 
     exploitTab:CreateToggle({
-        name = "Auto Equip Stunstick",
-        currentValue = st.rakeAuraAutoEquip,
+        name = "Auto Restore Power",
+        flag = "autoPowerRestore",
         callback = function(value)
-            st.rakeAuraAutoEquip = value
-            cfgSet("rakeAuraAutoEquip", value)
+            st.autoPowerRestore = value
+            if value then autoRestorePower() end
+        end
+    })
+
+    exploitTab:CreateToggle({
+        name = "Teleport to Power Station",
+        flag = "teleportToPower",
+        callback = function(value)
+            st.teleportToPower = value
+        end
+    })
+
+    exploitTab:CreateToggle({
+        name = "Stay Until Powered",
+        flag = "stayUntilPowered",
+        callback = function(value)
+            st.stayUntilPowered = value
+        end
+    })
+
+    exploitTab:CreateToggle({
+        name = "Use Toolbox For Power",
+        flag = "powerRestoreUseToolbox",
+        callback = function(value)
+            st.powerRestoreUseToolbox = value
         end
     })
 
@@ -2537,56 +2340,102 @@ if game.GameId == 847722000 then
     
     exploitTab:CreateToggle({
         name = "Notify on Spawns",
-        currentValue = st.spawnNotifications,
+        flag = "spawnNotifications",
         callback = function(value)
             st.spawnNotifications = value
-            cfgSet("spawnNotifications", value)
             SpawnNotifier.active = value
         end
     })
 
-    -- ========== PROTECTION TAB (FIXED) ==========
-    protectionTab:CreateSection({ name = "🛡️ Protection Status" })
+    -- ========== KILL AURA IN EXPLOITS TAB ==========
+    exploitTab:CreateSection({ name = "Rake Kill Aura" })
     
-    protectionTab:CreateLabel("🛡️ All protection systems are AUTO-ON by default")
-    protectionTab:CreateLabel("✅ Anti-Cheat Bypass: ACTIVE")
-    protectionTab:CreateLabel("✅ Admin Detection: ACTIVE")
-    protectionTab:CreateLabel("✅ Remote Spoofing: ACTIVE")
-    protectionTab:CreateLabel("✅ Exploit Sign Hiding: ACTIVE")
-    protectionTab:CreateLabel("✅ Auto-Disable on Admin: ACTIVE")
-
-    protectionTab:CreateSection({ name = "📊 Protection Stats" })
-    
-    protectionTab:CreateButton({
-        name = "🔄 Check Protection Status",
-        callback = function()
-            local status = "🛡️ PROTECTION STATUS:\n"
-            status = status .. "✅ Anti-Cheat Bypass: " .. (Protection.antiCheatActive and "ACTIVE" or "INACTIVE") .. "\n"
-            status = status .. "✅ Admin Detected: " .. (Protection.adminDetected and "⚠️ YES" or "NO") .. "\n"
-            status = status .. "✅ Remote Spoofing: " .. (Protection.remoteSpoofEnabled and "ACTIVE" or "INACTIVE") .. "\n"
-            status = status .. "✅ Exploit Signs Hidden: " .. (Protection.exploitSignsHidden and "YES" or "NO") .. "\n"
-            status = status .. "✅ Auto-Disable: " .. (st.autoDisableOnAdmin and "ENABLED" or "DISABLED")
-            notify("🛡️ Protection Status", status, 5)
+    exploitTab:CreateToggle({
+        name = "Rake Killaura",
+        flag = "rakeAura",
+        callback = function(value)
+            st.rakeAura = value
         end
     })
 
-    -- ========== SETTINGS TAB ==========
+    exploitTab:CreateSlider({
+        name = "Killaura Range",
+        flag = "rakeAuraRange",
+        min = 6,
+        max = 30,
+        default = st.rakeAuraRange,
+        callback = function(value)
+            st.rakeAuraRange = math.clamp(value, 6, 30)
+        end
+    })
+
+    exploitTab:CreateSlider({
+        name = "Killaura Delay",
+        flag = "rakeAuraDelay",
+        min = 0.05,
+        max = 0.6,
+        default = st.rakeAuraDelay,
+        callback = function(value)
+            st.rakeAuraDelay = math.clamp(value, 0.05, 0.6)
+        end
+    })
+
+    exploitTab:CreateToggle({
+        name = "Auto Equip Stunstick",
+        flag = "rakeAuraAutoEquip",
+        callback = function(value)
+            st.rakeAuraAutoEquip = value
+        end
+    })
+
+    -- ========== UI - SETTINGS TAB ==========
     settingsTab:CreateSection({ name = "Settings" })
     
     settingsTab:CreateButton({
         name = "Save Settings Now",
         callback = function()
-            saveCfg(saved)
-            notify("Settings", "Saved successfully.", 2)
+            window:Save()
+            notify("Settings", "Saved successfully.", 2, true)
+        end
+    })
+
+    settingsTab:CreateButton({
+        name = "Load Settings Now",
+        callback = function()
+            window:Load()
+            notify("Settings", "Loaded successfully.", 2, true)
         end
     })
 
     settingsTab:CreateButton({
         name = "Reset All Settings",
         callback = function()
-            saved = {}
-            saveCfg(saved)
-            notify("Settings", "Reset all settings. Please reload the script.", 3)
+            local flagsToReset = {
+                "ESP_Players", "ESP_Rake", "ESP_FlareGun", "ESP_Scrap", "ESP_Locations",
+                "supplyDropESP", "rakeTrapESP", "espShowDistance", "autoSupplyCollect",
+                "autoScrapCollect", "promptBypass", "fullbright", "noFog", "disableShadows",
+                "fovOn", "unlockThirdPerson", "infoBubble", "walkspeedOn", "infStamina",
+                "noFall", "autoHealSelf", "autoHealPlayers", "healAutoEquip",
+                "autoPowerRestore", "teleportToPower", "stayUntilPowered",
+                "powerRestoreUseToolbox", "spawnNotifications", "rakeAura", "rakeAuraAutoEquip"
+            }
+            for _, flag in ipairs(flagsToReset) do
+                window:Set(flag, false)
+            end
+            
+            window:Set("fov", 70)
+            window:Set("walkspeed", 16)
+            window:Set("healSelfAt", 55)
+            window:Set("healPlayerAt", 60)
+            window:Set("minZoom", 0.5)
+            window:Set("maxZoom", 1000)
+            window:Set("espTextSize", 12)
+            window:Set("promptDistance", 25)
+            window:Set("rakeAuraRange", 12)
+            window:Set("rakeAuraDelay", 0.12)
+            
+            notify("Settings", "Reset all settings to defaults!", 2, true)
+            window:Save()
         end
     })
 
@@ -2601,26 +2450,13 @@ if game.GameId == 847722000 then
                 pcall(function() c:Disconnect() end)
             end
             safeDestroy(infoBubble)
-            window:Destroy()
-            notify("Unloaded", "Script unloaded.", 2)
+            window:Unload()
+            notify("Unloaded", "Script unloaded.", 2, true)
         end
     })
 
     -- ========== INITIALIZE ==========
     showWelcomeNotification()
-
-    -- Initialize Protection System (AUTO-ON)
-    task.spawn(function()
-        notify("🛡️ PROTECTION", "Enhanced protection system initializing...", 3)
-        task.wait(0.5)
-        
-        pcall(bypassAntiCheat)
-        pcall(spoofRemoteEvents)
-        pcall(hideExploitSigns)
-        pcall(detectAdmins)
-        
-        notify("🛡️ PROTECTION", "All protection systems are now ACTIVE!", 3)
-    end)
 
     -- Apply initial states
     if st.fullbright then applyFullbright() end
@@ -2659,16 +2495,47 @@ if game.GameId == 847722000 then
         if st.walkspeedOn then task.wait(0.1); applyWalkSpeed() end
         if st.infoBubble then syncBubble() end
         applyZoom()
+        auraClearStick()
+    end)
+
+    -- Rake tracking for ESP and Kill Aura
+    Workspace.DescendantAdded:Connect(function(obj)
+        if obj and obj.Name == "Rake" then
+            auraClearRake()
+            aura.rk = obj
+        end
+    end)
+
+    Workspace.ChildRemoved:Connect(function(obj)
+        if obj == aura.rk or obj.Name == "Rake" then
+            auraClearRake()
+        end
     end)
 
     -- Main loop
-    local espTimer = 0
     RunService.Heartbeat:Connect(function(dt)
-        -- Protection Loop
-        pcall(runProtectionLoop)
-        
-        -- Killaura
-        if st.rakeAura then
+        -- Auto heal
+        pcall(autoFirstAid)
+
+        -- WalkSpeed
+        applyWalkSpeed()
+
+        -- Auto collect
+        if st.autoSupplyCollect then pcall(autoSupplyCollect) end
+        if st.autoScrapCollect then pcall(autoScrapCollect) end
+        if st.autoPowerRestore then pcall(autoRestorePower) end
+
+        -- Infinite stamina heartbeat
+        if st.infStamina == true then
+            infSys.fast = infSys.fast + dt
+            if infSys.fast >= 0.75 then
+                infSys.fast = 0
+                applyInfTabs()
+            end
+        end
+
+        -- Rake Killaura
+        if st.rakeAura == true then
             auraT = auraT + dt
             pcall(function()
                 local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -2691,16 +2558,6 @@ if game.GameId == 847722000 then
         else
             auraT = 0
         end
-
-        -- Auto heal
-        pcall(autoFirstAid)
-
-        -- WalkSpeed
-        if st.walkspeedOn then applyWalkSpeed() end
-
-        -- Auto collect
-        if st.autoSupplyCollect then pcall(autoSupplyCollect) end
-        if st.autoScrapCollect then pcall(autoScrapCollect) end
 
         -- Info Bubble updates
         if st.infoBubble then
@@ -2734,7 +2591,7 @@ if game.GameId == 847722000 then
 
     -- Final loaded notification
     task.delay(1.5, function()
-        notify("✅ Loaded", SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " - Protection Active!", 3)
-        print("✅ " .. SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " loaded.")
+        notify("✅ Loaded", SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " with Kill Aura", 3, true)
+        print("✅ " .. SCRIPT_NAME .. " " .. SCRIPT_VERSION .. " with Kill Aura loaded.")
     end)
 end
