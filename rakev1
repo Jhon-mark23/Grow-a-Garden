@@ -76,8 +76,8 @@ if game.GameId == 847722000 then
 
     -- Create Window with auto-save
     local window = Rayfield:CreateWindow({
-        name = "Project The Rake",
-        subtitle = "ESP + Exploits + Auto Heal + Power + Kill Aura",
+        name = "The Rake Resmatered",
+        subtitle = "ESP + Exploits + Auto Heal + Power(testing) + Kill Aura",
         theme = "amethyst",
         showName = "Rake",
         configuration = {
