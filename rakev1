@@ -29,7 +29,7 @@ end)()
 
 if game.GameId == 847722000 then
     -- ========== SCRIPT VERSION ==========
-    local SCRIPT_VERSION = "v2.2.1"
+    local SCRIPT_VERSION = "v2.3.0"
     local SCRIPT_NAME = "The Rake Enhanced - Full Features"
 
     -- Load Rayfield Gen2
@@ -38,11 +38,10 @@ if game.GameId == 847722000 then
     -- Safe notification function using Rayfield Toasts
     local function notify(title, content, duration, isToast)
         duration = duration or 3
-        isToast = (isToast == nil and true) or isToast  -- Default to toast for cleaner UI
+        isToast = (isToast == nil and true) or isToast
         
         if Rayfield and type(Rayfield.Notify) == "function" then
             if isToast then
-                -- Use Toast for clean pill-style notifications
                 Rayfield:Toast({
                     Title = title,
                     Subtitle = content,
@@ -50,7 +49,6 @@ if game.GameId == 847722000 then
                     Position = "Top",
                 })
             else
-                -- Use Notification for larger card-style
                 Rayfield:Notify({
                     Title = title,
                     Content = content,
@@ -58,7 +56,6 @@ if game.GameId == 847722000 then
                 })
             end
         else
-            -- Fallback to core GUI
             pcall(function()
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = title,
@@ -76,8 +73,8 @@ if game.GameId == 847722000 then
 
     -- Create Window with auto-save
     local window = Rayfield:CreateWindow({
-        name = "The Rake Resmatered",
-        subtitle = "ESP + Exploits + Auto Heal + Power(testing) + Kill Aura",
+        name = "The Rake Remastered",
+        subtitle = "ESP + Exploits + Auto Heal + Power + Kill Aura",
         theme = "amethyst",
         showName = "Rake",
         configuration = {
@@ -127,13 +124,12 @@ if game.GameId == 847722000 then
         fullbright = false,
         fov = 70,
         fovOn = false,
-        unlockThirdPerson = false,
+        toggleCamera = false,
         infoBubble = false,
         noFog = false,
         disableShadows = false,
         
         -- Player
-        minZoom = 0.5,
         maxZoom = 1000,
         walkspeed = 16,
         walkspeedOn = false,
@@ -147,10 +143,7 @@ if game.GameId == 847722000 then
         
         -- Exploits
         autoPowerRestore = false,
-        powerRestoreUseToolbox = true,
         spawnNotifications = true,
-        teleportToPower = false,
-        stayUntilPowered = false,
         
         -- ESP
         supplyDropESP = false,
@@ -244,9 +237,6 @@ if game.GameId == 847722000 then
         LocationMarkers = {},
         Connections = {},
         IsRunning = false,
-        drops = {},
-        traps = {},
-        scraps = {},
     }
 
     -- ========== DETECTION ==========
@@ -926,7 +916,7 @@ if game.GameId == 847722000 then
         applyFov()
     end
 
-    -- ========== ZOOM ==========
+    -- ========== CAMERA ZOOM ==========
     local zoomConns = {}
     local zoomApply = false
     function wipeZoomConns()
@@ -942,13 +932,7 @@ if game.GameId == 847722000 then
         if zoomApply == true then return end
         local lp = LocalPlayer
         if not lp then return end
-        local mn = math.max(0.5, tonumber(st.minZoom) or 0.5)
-        local mx = math.max(mn, tonumber(st.maxZoom) or 1000)
-        if lp.CameraMinZoomDistance ~= mn then
-            zoomApply = true
-            pcall(function() lp.CameraMinZoomDistance = mn end)
-            zoomApply = false
-        end
+        local mx = math.max(0.5, tonumber(st.maxZoom) or 1000)
         if lp.CameraMaxZoomDistance ~= mx then
             zoomApply = true
             pcall(function() lp.CameraMaxZoomDistance = mx end)
@@ -963,13 +947,11 @@ if game.GameId == 847722000 then
                 applyZoom()
             end
         end
-        for _, prop in { "CameraMinZoomDistance", "CameraMaxZoomDistance" } do
-            local ok, c = pcall(function()
-                return lp:GetPropertyChangedSignal(prop):Connect(reapply)
-            end)
-            if ok and c then
-                zoomConns[#zoomConns + 1] = c
-            end
+        local ok, c = pcall(function()
+            return lp:GetPropertyChangedSignal("CameraMaxZoomDistance"):Connect(reapply)
+        end)
+        if ok and c then
+            zoomConns[#zoomConns + 1] = c
         end
         applyZoom()
     end
@@ -1069,21 +1051,27 @@ if game.GameId == 847722000 then
         end
     end
 
-    -- ========== THIRD PERSON ==========
-    local thirdPersonActive = false
-    local thirdPersonConns = {}
-    function applyThirdPerson(force)
-        if st.unlockThirdPerson ~= true and force ~= true then
-            if thirdPersonActive then
-                thirdPersonActive = false
-                for _, c in thirdPersonConns do
+    -- ========== TOGGLE CAMERA ==========
+    local cameraActive = false
+    local cameraConns = {}
+    function applyToggleCamera(force)
+        if st.toggleCamera ~= true and force ~= true then
+            if cameraActive then
+                cameraActive = false
+                for _, c in cameraConns do
                     pcall(function() c:Disconnect() end)
                 end
-                thirdPersonConns = {}
+                cameraConns = {}
+                pcall(function()
+                    local cam = workspace.CurrentCamera
+                    if cam then
+                        cam.CameraType = Enum.CameraType.Classic
+                    end
+                end)
             end
             return
         end
-        thirdPersonActive = true
+        cameraActive = true
         pcall(function()
             local cam = workspace.CurrentCamera
             if cam then
@@ -1097,7 +1085,7 @@ if game.GameId == 847722000 then
                 end
             end
             local function enforce()
-                if st.unlockThirdPerson then
+                if st.toggleCamera then
                     local currentCam = workspace.CurrentCamera
                     if currentCam then
                         currentCam.CameraType = Enum.CameraType.Custom
@@ -1112,18 +1100,18 @@ if game.GameId == 847722000 then
                 end
             end
             local con1 = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(enforce)
-            table.insert(thirdPersonConns, con1)
+            table.insert(cameraConns, con1)
             local con2 = LocalPlayer.CharacterAdded:Connect(function()
                 task.wait(0.1)
                 enforce()
             end)
-            table.insert(thirdPersonConns, con2)
+            table.insert(cameraConns, con2)
             local con3 = RunService.Heartbeat:Connect(function()
-                if st.unlockThirdPerson then
+                if st.toggleCamera then
                     enforce()
                 end
             end)
-            table.insert(thirdPersonConns, con3)
+            table.insert(cameraConns, con3)
         end)
     end
 
@@ -1218,7 +1206,7 @@ if game.GameId == 847722000 then
         return false
     end
 
-    -- ========== POWER RESTORATION WITH TELEPORT ==========
+    -- ========== POWER RESTORATION ==========
     local powerRepairBusy = false
     local POWER_STATION_POSITION = Vector3.new(-285, 19, -210)
     
@@ -1264,10 +1252,9 @@ if game.GameId == 847722000 then
             return true, "powered"
         end
         
-        if st.teleportToPower then
-            teleportToPowerStation()
-            task.wait(0.5)
-        end
+        -- Always teleport to power station first
+        teleportToPowerStation()
+        task.wait(0.5)
         
         powerRepairBusy = true
         local oldCf = root.CFrame
@@ -1276,15 +1263,20 @@ if game.GameId == 847722000 then
         notify("Power Station", "Starting power restoration...", 2)
         
         local ok, result = pcall(function()
-            -- Use direct StationStart as requested
+            -- Move to station
+            root.CFrame = guiPart.CFrame * CFrame.new(0, 0, 3)
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            task.wait(0.2)
+            root.Anchored = true
+            
+            -- Start repair
             ev:FireServer("StationStart")
             
             local activate = tonumber(prompt:GetAttribute("ActivateTime")) or 30
             local deadline = time() + math.max(activate + 8, 35)
             local success = false
-            
-            local maxWait = st.stayUntilPowered and 120 or 45
-            local waitDeadline = time() + maxWait
+            local waitDeadline = time() + 45
             
             while root.Parent and time() < deadline and time() < waitDeadline do
                 if stationPower and stationPower.Value == true then
@@ -1398,7 +1390,6 @@ if game.GameId == 847722000 then
             end
             
             if targetPart and targetPart:IsA("BasePart") then
-                -- Spawn above head like scrap does
                 local newPos = head.Position + Vector3.new(0, 2, 0)
                 targetPart.CFrame = CFrame.new(newPos)
                 targetPart.AssemblyLinearVelocity = Vector3.zero
@@ -1413,10 +1404,10 @@ if game.GameId == 847722000 then
         end)
         
         if success then
-            notify("✅ Flaregun", "Brought flaregun to you!", 2)
+            notify("Flaregun", "Brought flaregun to you!", 2)
             return true
         else
-            notify("❌ Flaregun", "Failed to bring flaregun!", 2)
+            notify("Flaregun", "Failed to bring flaregun!", 2)
             return false
         end
     end
@@ -2128,11 +2119,11 @@ if game.GameId == 847722000 then
     })
 
     visualTab:CreateToggle({
-        name = "Unlock Third Person",
-        flag = "unlockThirdPerson",
+        name = "Toggle Camera",
+        flag = "toggleCamera",
         callback = function(value)
-            st.unlockThirdPerson = value
-            applyThirdPerson()
+            st.toggleCamera = value
+            applyToggleCamera()
         end
     })
 
@@ -2150,26 +2141,13 @@ if game.GameId == 847722000 then
     playerTab:CreateSection({ name = "Player Settings" })
     
     playerTab:CreateSlider({
-        name = "Min Zoom",
-        flag = "minZoom",
-        min = 0.5,
-        max = 100,
-        default = st.minZoom,
-        callback = function(value)
-            st.minZoom = math.max(0.5, value)
-            if st.maxZoom < st.minZoom then st.maxZoom = st.minZoom end
-            applyZoom()
-        end
-    })
-
-    playerTab:CreateSlider({
         name = "Max Zoom",
         flag = "maxZoom",
         min = 0.5,
         max = 1000,
         default = st.maxZoom,
         callback = function(value)
-            st.maxZoom = math.max(value, st.minZoom)
+            st.maxZoom = math.max(0.5, value)
             applyZoom()
         end
     })
@@ -2288,13 +2266,6 @@ if game.GameId == 847722000 then
     exploitTab:CreateSection({ name = "Power Restoration" })
     
     exploitTab:CreateButton({
-        name = "Teleport to Power Station",
-        callback = function()
-            teleportToPowerStation()
-        end
-    })
-    
-    exploitTab:CreateButton({
         name = "Restore Power Now",
         callback = function()
             task.spawn(function()
@@ -2309,30 +2280,6 @@ if game.GameId == 847722000 then
         callback = function(value)
             st.autoPowerRestore = value
             if value then autoRestorePower() end
-        end
-    })
-
-    exploitTab:CreateToggle({
-        name = "Teleport to Power Station",
-        flag = "teleportToPower",
-        callback = function(value)
-            st.teleportToPower = value
-        end
-    })
-
-    exploitTab:CreateToggle({
-        name = "Stay Until Powered",
-        flag = "stayUntilPowered",
-        callback = function(value)
-            st.stayUntilPowered = value
-        end
-    })
-
-    exploitTab:CreateToggle({
-        name = "Use Toolbox For Power",
-        flag = "powerRestoreUseToolbox",
-        callback = function(value)
-            st.powerRestoreUseToolbox = value
         end
     })
 
@@ -2414,10 +2361,9 @@ if game.GameId == 847722000 then
                 "ESP_Players", "ESP_Rake", "ESP_FlareGun", "ESP_Scrap", "ESP_Locations",
                 "supplyDropESP", "rakeTrapESP", "espShowDistance", "autoSupplyCollect",
                 "autoScrapCollect", "promptBypass", "fullbright", "noFog", "disableShadows",
-                "fovOn", "unlockThirdPerson", "infoBubble", "walkspeedOn", "infStamina",
+                "fovOn", "toggleCamera", "infoBubble", "walkspeedOn", "infStamina",
                 "noFall", "autoHealSelf", "autoHealPlayers", "healAutoEquip",
-                "autoPowerRestore", "teleportToPower", "stayUntilPowered",
-                "powerRestoreUseToolbox", "spawnNotifications", "rakeAura", "rakeAuraAutoEquip"
+                "autoPowerRestore", "spawnNotifications", "rakeAura", "rakeAuraAutoEquip"
             }
             for _, flag in ipairs(flagsToReset) do
                 window:Set(flag, false)
@@ -2427,7 +2373,6 @@ if game.GameId == 847722000 then
             window:Set("walkspeed", 16)
             window:Set("healSelfAt", 55)
             window:Set("healPlayerAt", 60)
-            window:Set("minZoom", 0.5)
             window:Set("maxZoom", 1000)
             window:Set("espTextSize", 12)
             window:Set("promptDistance", 25)
@@ -2446,7 +2391,7 @@ if game.GameId == 847722000 then
             wipeFullbrightConns()
             wipeFovConns()
             wipeZoomConns()
-            for _, c in thirdPersonConns do
+            for _, c in cameraConns do
                 pcall(function() c:Disconnect() end)
             end
             safeDestroy(infoBubble)
@@ -2474,7 +2419,7 @@ if game.GameId == 847722000 then
     if st.noFall then applyNoFall() end
     if st.fovOn then bindFovCam(workspace.CurrentCamera) end
     if st.walkspeedOn then applyWalkSpeed() end
-    if st.unlockThirdPerson then applyThirdPerson() end
+    if st.toggleCamera then applyToggleCamera() end
     if st.infoBubble then syncBubble() end
     if st.spawnNotifications then SpawnNotifier:startListening() end
     if st.promptBypass then applyPromptBypass() end
@@ -2485,7 +2430,7 @@ if game.GameId == 847722000 then
     -- Respawn handler
     LocalPlayer.CharacterAdded:Connect(function()
         task.wait(0.5)
-        if st.unlockThirdPerson then applyThirdPerson(true) end
+        if st.toggleCamera then applyToggleCamera(true) end
         if st.fullbright then applyFullbright() end
         if st.noFog then applyNoFog() end
         if st.disableShadows then applyDisableShadows() end
